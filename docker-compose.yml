@@ -1,0 +1,39 @@
+# Quick start: docker compose up -d   ->  http://localhost:4000  (admin@broker.local / Admin@123)
+# Load demo data: docker compose exec app node scripts/seed.js
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: naicom_returns
+      MYSQL_USER: naicom
+      MYSQL_PASSWORD: naicom
+    volumes: [dbdata:/var/lib/mysql]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass"]
+      interval: 5s
+      retries: 20
+  app:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+    ports: ["4000:4000"]
+    environment:
+      DB_HOST: db
+      DB_USER: naicom
+      DB_PASSWORD: naicom
+      DB_NAME: naicom_returns
+      JWT_SECRET: change-me-in-production
+      CORS_ORIGIN: http://localhost:4000
+      INGEST_API_KEY: change-me-ingest-key
+      ERP_SSO_SECRET: change-me-sso-secret
+      # Point these at your ERP's MySQL (read-only user) to enable direct pull:
+      ERP_DB_HOST: ""
+      ERP_DB_USER: ""
+      ERP_DB_PASSWORD: ""
+      ERP_DB_NAME: ""
+      ERP_SYNC_CRON: "30 1 * * *"
+    volumes:
+      - ./server/config:/app/server/config
+volumes:
+  dbdata:
