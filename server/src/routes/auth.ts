@@ -5,6 +5,7 @@ import { prisma } from '../db.js';
 import { ah, HttpError, parseBody } from '../lib/http.js';
 import { requireAuth } from '../middleware/auth.js';
 import { dummyHash, hashPassword, passwordProblems, verifyPassword } from '../services/auth/password.js';
+import { completePasswordReset, isResetTokenValid, requestPasswordReset } from '../services/auth/passwordReset.js';
 import { SESSION_COOKIE, cookieOptions, signSession } from '../services/auth/session.js';
 
 export const authRouter = Router();
@@ -74,5 +75,56 @@ authRouter.post(
     });
     res.cookie(SESSION_COOKIE, signSession(updated.id, updated.tokenVersion), cookieOptions());
     res.json({ user: toPublic(updated) });
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Forgot password (email link)
+// ---------------------------------------------------------------------------
+
+const resetRequestLimiter = [
+  rateLimit({ windowMs: 60 * 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false, message: tooMany }),
+  rateLimit({
+    windowMs: 60 * 60_000,
+    limit: 5,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => `${ipKeyGenerator(req.ip ?? '')}|${String(req.body?.email ?? '').trim().toLowerCase()}`,
+    message: { error: 'Too many reset requests for this email. Try again in an hour.' },
+  }),
+];
+const resetSubmitLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false, message: tooMany });
+
+export const FORGOT_PASSWORD_MESSAGE = 'If an account exists for that email, we have sent a link to reset the password. It expires soon, so use it right away.';
+
+authRouter.post(
+  '/forgot-password',
+  ...resetRequestLimiter,
+  ah(async (req, res) => {
+    const { email } = parseBody(z.object({ email: z.string().trim().toLowerCase().email().max(191) }), req.body);
+    // Same response, returned immediately, whether or not the account exists: the lookup and the
+    // email happen in the background so neither the body nor the timing reveals who has an account.
+    void requestPasswordReset(email, req.ip).catch((err) => console.error('[auth] password reset email failed:', err instanceof Error ? err.message : err));
+    res.json({ message: FORGOT_PASSWORD_MESSAGE });
+  }),
+);
+
+// POST (not GET) so the token never appears in URLs or access logs.
+authRouter.post(
+  '/reset-password/validate',
+  resetSubmitLimiter,
+  ah(async (req, res) => {
+    const { token } = parseBody(z.object({ token: z.string().min(20).max(200) }), req.body);
+    res.json({ valid: await isResetTokenValid(token) });
+  }),
+);
+
+authRouter.post(
+  '/reset-password',
+  resetSubmitLimiter,
+  ah(async (req, res) => {
+    const { token, newPassword } = parseBody(z.object({ token: z.string().min(20).max(200), newPassword: z.string().max(200) }), req.body);
+    await completePasswordReset(token, newPassword);
+    res.json({ message: 'Your password has been changed. Sign in with your new password.' });
   }),
 );

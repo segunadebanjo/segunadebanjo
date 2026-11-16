@@ -124,7 +124,7 @@ export function Modal({ open, title, onClose, children, footer, wide }: { open: 
   );
 }
 
-export function Field({ label, hint, children, className }: { label: string; hint?: ReactNode; children: ReactNode; className?: string }) {
+export function Field({ label, hint, children, className }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <label className={cx('block text-sm', className)}>
       <span className="mb-1 block font-medium text-slate-700">{label}</span>

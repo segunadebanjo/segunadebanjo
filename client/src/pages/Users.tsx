@@ -208,7 +208,7 @@ export function Users() {
               onClick={async () => {
                 if (!resetFor) return;
                 const r = resetFor;
-                if (await run(() => api.resetPassword(r.user.id, r.password), `Password for ${r.user.email} reset to "${r.password}". They are signed out and must choose a new one at next sign-in.`))
+                if (await run(() => api.adminResetPassword(r.user.id, r.password), `Password for ${r.user.email} reset to "${r.password}". They are signed out and must choose a new one at next sign-in.`))
                   setResetFor(null);
               }}
             >

@@ -25,7 +25,11 @@ export function createApp() {
   app.use(cors({ origin: config.CORS_ORIGIN.split(',').map((s) => s.trim()), credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
-  if (config.NODE_ENV !== 'test') app.use(morgan('dev'));
+  if (config.NODE_ENV !== 'test') {
+    // Never write password-reset tokens to the access log.
+    morgan.token('safe-url', (req) => (req.url ?? '').replace(/([?&]token=)[^&]*/gi, '$1[redacted]'));
+    app.use(morgan(':method :safe-url :status :response-time ms - :res[content-length]'));
+  }
 
   app.get(
     '/api/health',
