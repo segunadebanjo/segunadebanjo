@@ -1,0 +1,16 @@
+{
+  "name": "insurance-ad-manager",
+  "private": true,
+  "description": "Multi-platform insurance ad management & campaign automation (React + Express + MySQL)",
+  "scripts": {
+    "db:up": "docker compose up -d && npm --prefix server run db:wait",
+    "db:down": "docker compose down",
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "setup": "npm --prefix server run db:deploy && npm --prefix server run db:generate && npm --prefix server run db:seed",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix server run build && npm --prefix client run build",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix client run typecheck",
+    "test": "npm --prefix server test"
+  }
+}
