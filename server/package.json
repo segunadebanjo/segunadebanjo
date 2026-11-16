@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
     "test:db": "DB_TESTS=1 vitest run",
+    "db:check": "node scripts/check-database-url.mjs",
     "db:wait": "tsx scripts/wait-for-db.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

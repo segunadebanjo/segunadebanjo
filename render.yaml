@@ -18,9 +18,9 @@ services:
       npm --prefix client ci --include=dev &&
       npm --prefix server run db:generate &&
       npm run build
-    # Apply pending database migrations, then start. A database problem shows up
+    # Check DATABASE_URL (plain-words error), apply pending migrations, then start. A database problem shows up
     # in the service's Logs (with Prisma's error) instead of failing the build.
-    startCommand: npm --prefix server run db:deploy && npm start
+    startCommand: npm --prefix server run db:check && npm --prefix server run db:deploy && npm start
     envVars:
       - key: NODE_VERSION
         value: "22"

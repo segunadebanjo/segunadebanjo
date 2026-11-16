@@ -163,7 +163,7 @@ Each event goes through these steps:
 
 1. **Create a MySQL 8 database elsewhere.** Render only hosts PostgreSQL. Aiven's free MySQL plan is fine for trying it out; use a paid managed MySQL with backups for real use. Copy its connection string and add `?sslaccept=strict` to the end.
 2. **In Render, choose New → Blueprint** and pick this repository. Render reads `render.yaml` and asks for `DATABASE_URL`, `APP_URL` and `CORS_ORIGIN` (both your `https://….onrender.com` address), plus the optional SMTP and Anthropic values. `AUTH_SECRET` and `WEBHOOK_SECRET_KEY` are generated for you.
-3. **Deploy.** The build installs and builds; database migrations are applied when the service starts, so a wrong `DATABASE_URL` shows up in the service's **Logs** (e.g. `P1001: Can't reach database server`) rather than failing the build. The health check is `/api/health`. Every merge into `insurance-ad-manager-main` redeploys.
+3. **Deploy.** The build installs and builds; database migrations are applied when the service starts, so a wrong `DATABASE_URL` shows up in the service's **Logs** rather than failing the build. Startup first checks `DATABASE_URL` and says in plain words if it's missing, quoted, a PostgreSQL URL or otherwise not `mysql://…`; after that, `P1001` means the host can't be reached and `P1000` means a wrong user or password. The health check is `/api/health`. Every merge into `insurance-ad-manager-main` redeploys.
 4. **Create your own admin** (don't seed the demo accounts online, their password is public). On a paid plan, use the service's Shell; on the free plan, run it from your computer against the online database:
    ```bash
    cd server
