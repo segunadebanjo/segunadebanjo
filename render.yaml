@@ -12,14 +12,15 @@ services:
     autoDeploy: true
     healthCheckPath: /api/health
     # --include=dev: NODE_ENV=production would otherwise skip tsc/vite/prisma.
-    # db:deploy applies any pending database migrations on every deploy.
+    # The build never touches the database, so it can't fail on a bad DATABASE_URL.
     buildCommand: >-
       npm --prefix server ci --include=dev &&
       npm --prefix client ci --include=dev &&
       npm --prefix server run db:generate &&
-      npm run build &&
-      npm --prefix server run db:deploy
-    startCommand: npm start
+      npm run build
+    # Apply pending database migrations, then start. A database problem shows up
+    # in the service's Logs (with Prisma's error) instead of failing the build.
+    startCommand: npm --prefix server run db:deploy && npm start
     envVars:
       - key: NODE_VERSION
         value: "22"
