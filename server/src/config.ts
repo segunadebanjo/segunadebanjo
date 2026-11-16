@@ -16,6 +16,8 @@ const schema = z.object({
   PORT: z.coerce.number().int().default(4100),
   NODE_ENV: z.string().default('development'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  /** Override where the built React app lives (defaults to ../client/dist). */
+  CLIENT_DIST: opt,
   DATABASE_URL: z.string().default('mysql://adsuser:adspass@localhost:3307/insurance_ads'),
   SANDBOX_MODE: bool(true),
   WEBHOOK_SECRET_KEY: opt,

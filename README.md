@@ -20,10 +20,21 @@ npm --prefix server run db:wait
 # 2. Schema + seed data (8 products across all 6 classes, rules, 5 demo campaigns, 30 days of metrics)
 npm run setup        # prisma migrate deploy → prisma generate → prisma db seed
 
-# 3. Run (two terminals)
+# 3a. Development (two terminals): open the UI at http://localhost:5173
 npm run dev:server   # API  → http://localhost:4100/api
 npm run dev:client   # UI   → http://localhost:5173  (proxies /api to :4100)
+
+# 3b. Or one server for everything: open http://localhost:4100
+npm run build && npm start
 ```
+
+Which address to open:
+- **Development** (`dev:server` + `dev:client`): use `http://localhost:5173`. Port 4100 is the API only; its root page just says where the UI is.
+- **After `npm run build`**: the API server also serves the UI, so `http://localhost:4100` opens the app and every page link works.
+
+### Logging in
+
+There is no login. The app opens straight to the dashboard, and anyone who can reach the server can use it. Only the conversion webhook is protected, by the `x-api-key` header set from `WEBHOOK_SECRET_KEY`. Run it on your own machine or behind your company VPN/SSO until user accounts are added.
 
 During development, run `npm --prefix server run db:migrate` (`prisma migrate dev`) after you edit `prisma/schema.prisma`. To rebuild the demo data, run `npm --prefix server run db:reset`.
 
