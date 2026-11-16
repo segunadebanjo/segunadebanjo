@@ -60,11 +60,27 @@ npm --prefix server run user:create -- --email you@broker.ng --name "Your Name" 
 
 Then add everyone else from the **Users** page. New users get a temporary password and must replace it at first sign-in.
 
+### Forgot password
+
+Users can reset their own password with **Forgot password?** on the sign-in page:
+1. They enter their email.
+2. If the account exists and is active, they get a link that works once and expires after `PASSWORD_RESET_TTL_MINUTES` (60 by default).
+3. Setting a new password signs them out on every device.
+
+The page shows the same message whether or not the email has an account. Admins can still reset passwords from the Users page.
+
+For email delivery, set these in `server/.env`:
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM`.
+- `APP_URL`: the address people open the app at, used to build the link. In production, use your HTTPS domain.
+
+Without `SMTP_HOST` in development, the email (including the link) is printed to the server console instead of sent. In production the server warns at startup if SMTP isn't configured, and it never prints links to the console.
+
 Security notes:
 - **Passwords:** stored as scrypt hashes. The minimum is 10 characters, with letters and numbers.
 - **Sessions:** a signed, httpOnly, SameSite=Lax cookie that lasts `AUTH_SESSION_HOURS` (12 by default). The user and role are re-checked on every request, so deactivating someone, changing their role, or resetting or changing a password takes effect immediately.
 - **Sign-in rate limit:** 10 attempts per account per IP, and 100 per IP, every 15 minutes.
 - **Production:** set `AUTH_SECRET` (32+ random characters) and serve over HTTPS. The server refuses to start in production without `AUTH_SECRET`, and cookies are HTTPS-only there by default.
+- **Reset links:** 32 random bytes, stored only as a SHA-256 hash, single-use, and a newer request cancels older links. The token is kept out of access logs and is removed from the browser's address bar as soon as the page reads it. Requests are limited to 5 per email per hour.
 - **Webhook:** `/api/webhooks/conversions` keeps using its `x-api-key`, not user sign-in. `/api/health` stays public.
 
 During development, run `npm --prefix server run db:migrate` (`prisma migrate dev`) after you edit `prisma/schema.prisma`. To rebuild the demo data, run `npm --prefix server run db:reset`.

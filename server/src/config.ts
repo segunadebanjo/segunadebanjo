@@ -49,6 +49,17 @@ const schema = z.object({
   DISABLE_CRON: bool(false),
   AUTH_SECRET: opt,
   AUTH_SESSION_HOURS: z.coerce.number().positive().max(24 * 30).default(12),
+  /** Public URL of the web app, used to build links in emails (never taken from request headers). */
+  APP_URL: z.string().url().default('http://localhost:5173'),
+  PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(60),
+  /** smtp | log | memory. Default: smtp when SMTP_HOST is set, otherwise log (dev) — see services/mail. */
+  MAIL_TRANSPORT: z.enum(['smtp', 'log', 'memory']).optional(),
+  SMTP_HOST: opt,
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: bool(false),
+  SMTP_USER: opt,
+  SMTP_PASS: opt,
+  MAIL_FROM: z.string().default('Insurance Ad Manager <no-reply@localhost>'),
   AUTH_COOKIE_SECURE: z
     .string()
     .optional()

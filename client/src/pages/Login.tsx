@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../auth';
 import { Button, ErrorBanner, Field, inputCls } from '../components/ui';
@@ -7,7 +7,8 @@ import { Button, ErrorBanner, Field, inputCls } from '../components/ui';
 export function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const from = (useLocation().state as { from?: string } | null)?.from ?? '/';
+  const state = useLocation().state as { from?: string; notice?: string } | null;
+  const from = state?.from ?? '/';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,18 +41,18 @@ export function Login() {
           <p className="text-sm text-slate-500">Sign in to continue</p>
         </div>
         <form onSubmit={submit} className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          {state?.notice && <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{state.notice}</p>}
           <ErrorBanner error={error} />
           <Field label="Email">
             <input className={inputCls} type="email" autoComplete="username" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Field label="Password">
+          <Field label={<span className="flex items-center justify-between">Password<Link to="/forgot-password" className="text-xs font-normal text-brand-700 hover:underline">Forgot password?</Link></span>}>
             <input className={inputCls} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
           <Button type="submit" className="w-full" loading={busy} icon={<LogIn className="h-4 w-4" />}>
             Sign in
           </Button>
         </form>
-        <p className="mt-4 text-center text-xs text-slate-400">Forgot your password? Ask an administrator to reset it.</p>
       </div>
     </div>
   );
