@@ -1,0 +1,27 @@
+# Local MySQL 8.0 for the Insurance Ad Manager.
+#   docker compose up -d        → MySQL on localhost:3307 (db: insurance_ads, user: adsuser / adspass)
+# Tables are created by Prisma migrations (`npm run setup`). database/schema.sql is a raw backup of the
+# same DDL for environments without Prisma; don't apply both to the same database.
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: insurance-ads-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: insurance_ads
+      MYSQL_USER: adsuser
+      MYSQL_PASSWORD: adspass
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports:
+      - "3307:3306"
+    volumes:
+      - insurance_ads_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  insurance_ads_mysql:

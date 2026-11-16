@@ -1,0 +1,256 @@
+// Insurance Ad Manager — MySQL 8.0 schema.
+// All monetary fields are DECIMAL(12,2). See ../CLAUDE.md for the table reference.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum InsuranceClass {
+  AUTO_MOTOR
+  HEALTH_HMO
+  LIFE
+  PROPERTY
+  COMMERCIAL_SME
+  TRAVEL
+}
+
+enum CampaignObjective {
+  TRAFFIC
+  QUOTE_LEADS
+  POLICY_PURCHASE
+}
+
+enum CampaignStatus {
+  DRAFT
+  PENDING_REVIEW
+  PAUSED
+  ACTIVE
+  ARCHIVED
+}
+
+enum Platform {
+  FACEBOOK
+  INSTAGRAM
+  GOOGLE_SEARCH
+  GOOGLE_DISPLAY
+  LINKEDIN
+}
+
+enum ComplianceStatus {
+  PASSED
+  WARNING
+  BLOCKED
+}
+
+enum ConversionEventType {
+  QUOTE_STARTED
+  APPLICATION_SUBMITTED
+  POLICY_PURCHASED
+}
+
+enum OptimizationRuleType {
+  PAUSE_ZERO_QUOTES
+  SCALE_HIGH_ROAS
+  FLAG_HIGH_CPA
+}
+
+enum OptimizationMode {
+  RECOMMEND
+  AUTO_APPLY
+}
+
+enum RecommendationAction {
+  PAUSE
+  INCREASE_BUDGET
+  FLAG
+}
+
+enum RecommendationStatus {
+  OPEN
+  APPLIED
+  DISMISSED
+}
+
+model InsuranceProduct {
+  id                      Int            @id @default(autoincrement())
+  insuranceClass          InsuranceClass @map("insurance_class")
+  name                    String         @db.VarChar(160)
+  targetAudienceSummary   String         @map("target_audience_summary") @db.Text
+  keyBenefits             Json           @map("key_benefits")
+  startingPremium         Decimal        @map("starting_premium") @db.Decimal(12, 2)
+  currency                String         @default("NGN") @db.VarChar(3)
+  landingPageUrl          String         @map("landing_page_url") @db.VarChar(500)
+  regulatoryLicenseNumber String         @map("regulatory_license_number") @db.VarChar(80)
+  isActive                Boolean        @default(true) @map("is_active")
+  createdAt               DateTime       @default(now()) @map("created_at")
+  updatedAt               DateTime       @updatedAt @map("updated_at")
+
+  campaigns Campaign[]
+
+  @@index([insuranceClass])
+  @@map("insurance_products")
+}
+
+model Campaign {
+  id                Int               @id @default(autoincrement())
+  productId         Int               @map("product_id")
+  name              String            @db.VarChar(160)
+  objective         CampaignObjective
+  totalDailyBudget  Decimal           @map("total_daily_budget") @db.Decimal(12, 2)
+  currency          String            @default("NGN") @db.VarChar(3)
+  status            CampaignStatus    @default(DRAFT)
+  targetLocations   Json              @map("target_locations")
+  specialAdCategory String?           @map("special_ad_category") @db.VarChar(64)
+  utmCampaign       String?           @unique @map("utm_campaign") @db.VarChar(191)
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  product          InsuranceProduct     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  deployments      PlatformDeployment[]
+  variants         AdCreativeVariant[]
+  conversionEvents ConversionEvent[]
+
+  @@index([productId])
+  @@index([status])
+  @@map("campaigns")
+}
+
+model PlatformDeployment {
+  id                 Int       @id @default(autoincrement())
+  campaignId         Int       @map("campaign_id")
+  platform           Platform
+  variantId          Int?      @map("variant_id")
+  externalCampaignId String?   @map("external_campaign_id") @db.VarChar(128)
+  externalAdsetId    String?   @map("external_adset_id") @db.VarChar(128)
+  externalAdId       String?   @map("external_ad_id") @db.VarChar(128)
+  dailyBudget        Decimal   @map("daily_budget") @db.Decimal(12, 2)
+  status             String    @default("NOT_PUBLISHED") @db.VarChar(32)
+  lastError          String?   @map("last_error") @db.Text
+  lastSyncedAt       DateTime? @map("last_synced_at")
+
+  campaign         Campaign                     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  variant          AdCreativeVariant?           @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  metrics          PerformanceMetric[]
+  conversionEvents ConversionEvent[]
+  recommendations  OptimizationRecommendation[]
+
+  @@unique([campaignId, platform])
+  @@index([campaignId])
+  @@index([variantId])
+  @@map("platform_deployments")
+}
+
+model AdCreativeVariant {
+  id                   Int              @id @default(autoincrement())
+  campaignId           Int              @map("campaign_id")
+  platform             Platform
+  hookAngle            String           @map("hook_angle") @db.VarChar(160)
+  headlines            Json
+  primaryTexts         Json             @map("primary_texts")
+  descriptions         Json
+  callToAction         String           @map("call_to_action") @db.VarChar(40)
+  mediaBriefOrUrl      String?          @map("media_brief_or_url") @db.Text
+  keywords             Json?
+  targetingSuggestions Json?            @map("targeting_suggestions")
+  complianceStatus     ComplianceStatus @default(WARNING) @map("compliance_status")
+  complianceNotes      Json             @map("compliance_notes")
+  isSelected           Boolean          @default(false) @map("is_selected")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  campaign    Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  deployments PlatformDeployment[]
+
+  @@index([campaignId])
+  @@map("ad_creative_variants")
+}
+
+model ConversionEvent {
+  id                    Int                 @id @default(autoincrement())
+  externalEventId       String?             @unique @map("external_event_id") @db.VarChar(128)
+  clickId               String?             @map("click_id") @db.VarChar(255)
+  clickIdType           String?             @map("click_id_type") @db.VarChar(16)
+  utmCampaign           String?             @map("utm_campaign") @db.VarChar(191)
+  campaignId            Int?                @map("campaign_id")
+  deploymentId          Int?                @map("deployment_id")
+  platform              Platform?
+  eventType             ConversionEventType @map("event_type")
+  policyPremiumValue    Decimal             @default(0) @map("policy_premium_value") @db.Decimal(12, 2)
+  currency              String              @default("NGN") @db.VarChar(3)
+  hashedEmail           String?             @map("hashed_email") @db.VarChar(64)
+  dispatchedToPlatforms Boolean             @default(false) @map("dispatched_to_platforms")
+  dispatchResults       Json?               @map("dispatch_results")
+  createdAt             DateTime            @default(now()) @map("created_at")
+
+  campaign   Campaign?           @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  deployment PlatformDeployment? @relation(fields: [deploymentId], references: [id], onDelete: SetNull)
+
+  @@index([clickId])
+  @@index([campaignId])
+  @@index([deploymentId])
+  @@index([createdAt])
+  @@map("conversion_events")
+}
+
+model PerformanceMetric {
+  id               Int      @id @default(autoincrement())
+  deploymentId     Int      @map("deployment_id")
+  metricDate       DateTime @map("metric_date") @db.Date
+  impressions      Int      @default(0)
+  clicks           Int      @default(0)
+  spend            Decimal  @default(0) @db.Decimal(12, 2)
+  quotesStarted    Int      @default(0) @map("quotes_started")
+  policiesSold     Int      @default(0) @map("policies_sold")
+  revenueGenerated Decimal  @default(0) @map("revenue_generated") @db.Decimal(12, 2)
+
+  deployment PlatformDeployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@unique([deploymentId, metricDate])
+  @@index([metricDate])
+  @@map("performance_metrics")
+}
+
+model OptimizationRule {
+  id                Int                  @id @default(autoincrement())
+  name              String               @db.VarChar(160)
+  ruleType          OptimizationRuleType @map("rule_type")
+  spendThreshold    Decimal?             @map("spend_threshold") @db.Decimal(12, 2)
+  targetRoas        Decimal?             @map("target_roas") @db.Decimal(8, 2)
+  maxCostPerPolicy  Decimal?             @map("max_cost_per_policy") @db.Decimal(12, 2)
+  budgetIncreasePct Int                  @default(15) @map("budget_increase_pct")
+  lookbackDays      Int                  @default(7) @map("lookback_days")
+  mode              OptimizationMode     @default(RECOMMEND)
+  isEnabled         Boolean              @default(true) @map("is_enabled")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  recommendations OptimizationRecommendation[]
+
+  @@map("optimization_rules")
+}
+
+model OptimizationRecommendation {
+  id              Int                  @id @default(autoincrement())
+  ruleId          Int                  @map("rule_id")
+  deploymentId    Int                  @map("deployment_id")
+  action          RecommendationAction
+  reason          String               @db.Text
+  suggestedBudget Decimal?             @map("suggested_budget") @db.Decimal(12, 2)
+  metricsSnapshot Json                 @map("metrics_snapshot")
+  status          RecommendationStatus @default(OPEN)
+  createdAt       DateTime             @default(now()) @map("created_at")
+  resolvedAt      DateTime?            @map("resolved_at")
+
+  rule       OptimizationRule   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  deployment PlatformDeployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([deploymentId])
+  @@index([status])
+  @@map("optimization_recommendations")
+}
