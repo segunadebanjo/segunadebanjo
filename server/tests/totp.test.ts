@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parseRequire2faRoles } from '../src/config.js';
 import { base32Decode, base32Encode, generateTotpSecret, hotp, otpauthUrl, totp, verifyTotp, timeStep } from '../src/services/auth/totp.js';
 import { decryptSecret, encryptSecret } from '../src/services/auth/secretBox.js';
 import { hashRecoveryCode } from '../src/services/auth/twoFactor.js';
@@ -72,5 +73,18 @@ describe('secret encryption & recovery code hashing', () => {
   });
   it('normalises recovery codes before hashing', () => {
     expect(hashRecoveryCode('ABCDE-FGHJK')).toBe(hashRecoveryCode('abcde fghjk'));
+  });
+});
+
+describe('REQUIRE_2FA_ROLES parsing', () => {
+  it('defaults to ADMIN when unset', () => {
+    expect(parseRequire2faRoles(undefined)).toEqual(['ADMIN']);
+  });
+  it('turns the requirement off with an empty value or "none"', () => {
+    expect(parseRequire2faRoles('')).toEqual([]);
+    expect(parseRequire2faRoles(' None ')).toEqual([]);
+  });
+  it('parses a list and ignores unknown roles', () => {
+    expect(parseRequire2faRoles('admin, Marketer,bogus')).toEqual(['ADMIN', 'MARKETER']);
   });
 });
