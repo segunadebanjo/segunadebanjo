@@ -161,10 +161,12 @@ Each event goes through these steps:
 
 `render.yaml` is a [Render Blueprint](https://render.com/docs/blueprint-spec) for one Node web service that runs the API and serves the built UI from `insurance-ad-manager-main`.
 
-1. **Create a MySQL 8 database elsewhere.** Render only hosts PostgreSQL. Aiven's free MySQL plan is fine for trying it out; use a paid managed MySQL with backups for real use. Copy its connection string and add `?sslaccept=strict` to the end.
+1. **Create a MySQL 8 database elsewhere.** Render only hosts PostgreSQL. Aiven's free MySQL plan is fine for trying it out; use a paid managed MySQL with backups for real use. Copy its connection string. On **Aiven**, paste the **Service URI** exactly as shown (it uses Aiven's own port, not 3306, and ends in `?ssl-mode=REQUIRED`); don't add `sslaccept=strict`, because Aiven's certificate isn't publicly trusted and strict checking would reject it. For providers with publicly trusted certificates, add `?sslaccept=strict`.
 2. **In Render, choose New → Blueprint** and pick this repository. Render reads `render.yaml` and asks for `DATABASE_URL`, `APP_URL` and `CORS_ORIGIN` (both your `https://….onrender.com` address), plus the optional SMTP and Anthropic values. `AUTH_SECRET` and `WEBHOOK_SECRET_KEY` are generated for you.
 3. **Deploy.** The build installs and builds; database migrations are applied when the service starts, so a wrong `DATABASE_URL` shows up in the service's **Logs** rather than failing the build. Startup first checks `DATABASE_URL` and says in plain words if it's missing, quoted, a PostgreSQL URL or otherwise not `mysql://…`; after that, `P1001` means the host can't be reached and `P1000` means a wrong user or password. The health check is `/api/health`. Every merge into `insurance-ad-manager-main` redeploys.
-4. **Create your own admin** (don't seed the demo accounts online, their password is public). On a paid plan, use the service's Shell; on the free plan, run it from your computer against the online database:
+4. **Create your own admin** (don't seed the demo accounts online, their password is public). The easiest way, with no terminal: in the service's **Environment**, set `INITIAL_ADMIN_EMAIL` (your email) and `INITIAL_ADMIN_PASSWORD` (at least 10 characters, letters and numbers), and optionally `INITIAL_ADMIN_NAME`, then deploy. On startup, if the database has **no users at all**, the app creates that admin and logs `[setup] Created the first admin`; once any user exists these variables are ignored, so you can delete them after signing in. Sign in with that email and password; you'll be asked to choose a new password.
+
+   Alternatively, on a paid plan use the service's Shell, or run this from your computer against the online database:
    ```bash
    cd server
    DATABASE_URL="mysql://…?sslaccept=strict" npm run user:create -- --email you@broker.ng --name "Your Name" --role ADMIN --password 'a-long-passw0rd'
