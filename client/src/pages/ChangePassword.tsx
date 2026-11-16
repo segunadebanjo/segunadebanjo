@@ -28,7 +28,7 @@ export function ChangePassword() {
       const r = await api.changePassword(current, next);
       setUser(r.user);
       setDone(true);
-      if (forced) navigate('/', { replace: true });
+      if (forced) navigate(r.user.mustSetUpTwoFactor ? '/account/security' : '/', { replace: true });
     } catch (err) {
       setError(err);
     } finally {

@@ -60,6 +60,23 @@ npm --prefix server run user:create -- --email you@broker.ng --name "Your Name" 
 
 Then add everyone else from the **Users** page. New users get a temporary password and must replace it at first sign-in.
 
+### Two-factor authentication
+
+Each user can turn on two-factor authentication on the **Security** page (sidebar → Security):
+1. They scan a QR code with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Authy and similar) and confirm a 6-digit code.
+2. They're shown 10 one-time recovery codes once, and can copy or download them.
+3. From then on, signing in needs the password and then the current code from the app. A recovery code works instead if the phone isn't available.
+
+- **Required roles:** set `REQUIRE_2FA_ROLES=ADMIN` (or `ADMIN,MARKETER`) in `server/.env`. Users in those roles must set it up straight after signing in, before they can use anything else, and can't turn it off.
+- **Lost phone:** an admin clicks **Reset 2FA** for that user on the Users page. This removes their 2FA and signs them out; they then sign in with just their password and set it up again (immediately, if their role requires it).
+- **Password resets by email don't bypass it:** sign-in still asks for the code.
+
+How it's protected:
+- **Codes:** standard TOTP (RFC 6238: 30-second codes, ±30 s clock tolerance). Each code works only once, and wrong codes are rate-limited (10 per 15 minutes).
+- **Secrets:** stored encrypted with AES-256-GCM; the key comes from `TWO_FACTOR_ENCRYPTION_KEY`, or is derived from `AUTH_SECRET`.
+- **Recovery codes:** stored only as SHA-256 hashes.
+- **Sign-in:** a correct password gives only a 5-minute "code pending" cookie. The real session is issued after the code.
+
 ### Forgot password
 
 Users can reset their own password with **Forgot password?** on the sign-in page:

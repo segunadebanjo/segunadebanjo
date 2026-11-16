@@ -4,12 +4,13 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db.js';
 import { ah, HttpError, parseBody, parseId } from '../lib/http.js';
 import { hashPassword, passwordProblems } from '../services/auth/password.js';
+import { clear as clearTwoFactor } from '../services/auth/twoFactor.js';
 
 /** Admin-only user management (mounted behind requireRole('ADMIN')). */
 export const usersRouter = Router();
 
 const Role = z.enum(['ADMIN', 'MARKETER', 'VIEWER']);
-const select = { id: true, email: true, name: true, role: true, isActive: true, mustChangePassword: true, lastLoginAt: true, createdAt: true } satisfies Prisma.UserSelect;
+const select = { id: true, email: true, name: true, role: true, isActive: true, mustChangePassword: true, twoFactorEnabledAt: true, lastLoginAt: true, createdAt: true } satisfies Prisma.UserSelect;
 
 const checkPassword = (pw: string) => {
   const problem = passwordProblems(pw);
@@ -75,6 +76,17 @@ usersRouter.post(
         select,
       }),
     );
+  }),
+);
+
+/** For a user who lost their authenticator: removes their 2FA and signs them out everywhere. */
+usersRouter.post(
+  '/:id/reset-2fa',
+  ah(async (req, res) => {
+    const id = parseId(req.params.id);
+    if (!(await prisma.user.findUnique({ where: { id } }))) throw new HttpError(404, 'User not found');
+    await clearTwoFactor(id, { revokeSessions: true });
+    res.json(await prisma.user.findUniqueOrThrow({ where: { id }, select }));
   }),
 );
 

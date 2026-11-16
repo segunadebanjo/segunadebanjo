@@ -189,4 +189,13 @@ export interface User {
   name: string;
   role: UserRole;
   mustChangePassword: boolean;
+  twoFactorEnabled: boolean;
+  mustSetUpTwoFactor: boolean;
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  enabledAt: string | null;
+  required: boolean;
+  recoveryCodesRemaining: number;
 }

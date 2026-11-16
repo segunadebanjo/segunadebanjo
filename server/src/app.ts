@@ -8,7 +8,7 @@ import morgan from 'morgan';
 import { config } from './config.js';
 import { prisma } from './db.js';
 import { ah } from './lib/http.js';
-import { blockUntilPasswordChanged, requireAuth, requireRole, writeRequiresMarketer } from './middleware/auth.js';
+import { blockUntilAccountReady, requireAuth, requireRole, writeRequiresMarketer } from './middleware/auth.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authRouter } from './routes/auth.js';
 import { usersRouter } from './routes/users.js';
@@ -44,7 +44,7 @@ export function createApp() {
 
   // ---- Everything below needs a signed-in user ----
   // Every role can read; writes need MARKETER or ADMIN; user management needs ADMIN.
-  const signedIn = [requireAuth, blockUntilPasswordChanged];
+  const signedIn = [requireAuth, blockUntilAccountReady];
   app.use('/api/users', ...signedIn, requireRole('ADMIN'), usersRouter);
   app.use('/api', ...signedIn, writeRequiresMarketer);
   app.use('/api/products', productsRouter);

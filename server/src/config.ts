@@ -60,6 +60,18 @@ const schema = z.object({
   SMTP_USER: opt,
   SMTP_PASS: opt,
   MAIL_FROM: z.string().default('Insurance Ad Manager <no-reply@localhost>'),
+  /** Comma-separated roles that must use two-factor authentication, e.g. "ADMIN" or "ADMIN,MARKETER". */
+  REQUIRE_2FA_ROLES: z
+    .string()
+    .optional()
+    .transform((v) =>
+      (v ?? '')
+        .split(',')
+        .map((x) => x.trim().toUpperCase())
+        .filter((x): x is 'ADMIN' | 'MARKETER' | 'VIEWER' => ['ADMIN', 'MARKETER', 'VIEWER'].includes(x)),
+    ),
+  /** Key that encrypts TOTP secrets at rest. Defaults to a key derived from AUTH_SECRET. */
+  TWO_FACTOR_ENCRYPTION_KEY: opt,
   AUTH_COOKIE_SECURE: z
     .string()
     .optional()

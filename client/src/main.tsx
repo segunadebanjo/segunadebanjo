@@ -16,6 +16,7 @@ const CampaignWizard = lazy(() => import('./pages/CampaignWizard').then((m) => (
 const CampaignDetail = lazy(() => import('./pages/CampaignDetail').then((m) => ({ default: m.CampaignDetail })));
 const Optimization = lazy(() => import('./pages/Optimization').then((m) => ({ default: m.Optimization })));
 const Users = lazy(() => import('./pages/Users').then((m) => ({ default: m.Users })));
+const Security = lazy(() => import('./pages/Security').then((m) => ({ default: m.Security })));
 const ChangePassword = lazy(() => import('./pages/ChangePassword').then((m) => ({ default: m.ChangePassword })));
 const Conversions = lazy(() => import('./pages/Conversions').then((m) => ({ default: m.Conversions })));
 
@@ -50,6 +51,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="optimization" element={<Optimization />} />
               <Route path="conversions" element={<Conversions />} />
               <Route path="account/password" element={<ChangePassword />} />
+              <Route path="account/security" element={<Security />} />
               <Route
                 path="users"
                 element={
