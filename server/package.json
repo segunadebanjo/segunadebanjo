@@ -14,7 +14,7 @@
     "db:wait": "tsx scripts/wait-for-db.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
+    "db:deploy": "node scripts/check-database-url.mjs && prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
     "db:apply-sql": "tsx scripts/apply-schema-sql.ts",

@@ -1,6 +1,11 @@
-// Run before migrations on hosted deploys (see render.yaml). Prisma's own error for a bad
+// Runs before every `npm run db:deploy` (see package.json). Prisma's own error for a bad
 // DATABASE_URL is a terse "P1012 ... env("DATABASE_URL")"; this says what's actually wrong.
 // Plain Node (no tsx/TypeScript) so it works before anything else. Never prints the password.
+
+import { existsSync } from 'node:fs';
+
+// Locally the URL usually lives in server/.env (which Prisma reads itself); load it the same way.
+if (!process.env.DATABASE_URL && existsSync('.env')) process.loadEnvFile('.env');
 
 const raw = process.env.DATABASE_URL;
 
