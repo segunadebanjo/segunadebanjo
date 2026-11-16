@@ -12,6 +12,19 @@ const opt = z
   .optional()
   .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined));
 
+type Role = 'ADMIN' | 'MARKETER' | 'VIEWER';
+const ROLES: readonly Role[] = ['ADMIN', 'MARKETER', 'VIEWER'];
+
+/** Unset → ['ADMIN'] (secure default); "" or "none" → [] (2FA optional for everyone). */
+export function parseRequire2faRoles(value: string | undefined): Role[] {
+  if (value === undefined) return ['ADMIN'];
+  if (value.trim().toLowerCase() === 'none') return [];
+  return value
+    .split(',')
+    .map((x) => x.trim().toUpperCase())
+    .filter((x): x is Role => (ROLES as readonly string[]).includes(x));
+}
+
 const schema = z.object({
   PORT: z.coerce.number().int().default(4100),
   NODE_ENV: z.string().default('development'),
@@ -60,16 +73,11 @@ const schema = z.object({
   SMTP_USER: opt,
   SMTP_PASS: opt,
   MAIL_FROM: z.string().default('Insurance Ad Manager <no-reply@localhost>'),
-  /** Comma-separated roles that must use two-factor authentication, e.g. "ADMIN" or "ADMIN,MARKETER". */
-  REQUIRE_2FA_ROLES: z
-    .string()
-    .optional()
-    .transform((v) =>
-      (v ?? '')
-        .split(',')
-        .map((x) => x.trim().toUpperCase())
-        .filter((x): x is 'ADMIN' | 'MARKETER' | 'VIEWER' => ['ADMIN', 'MARKETER', 'VIEWER'].includes(x)),
-    ),
+  /**
+   * Comma-separated roles that must use two-factor authentication. Defaults to "ADMIN" when unset;
+   * set it to an empty value or "none" to make 2FA optional for everyone.
+   */
+  REQUIRE_2FA_ROLES: z.string().optional().transform(parseRequire2faRoles),
   /** Key that encrypts TOTP secrets at rest. Defaults to a key derived from AUTH_SECRET. */
   TWO_FACTOR_ENCRYPTION_KEY: opt,
   AUTH_COOKIE_SECURE: z

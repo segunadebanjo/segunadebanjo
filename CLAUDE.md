@@ -150,7 +150,7 @@ targeting fails SAC rules.
   morgan redacts `token=` from logged URLs.
 - 2FA (`services/auth/totp.ts`, `twoFactor.ts`, `secretBox.ts`): login with 2FA on returns `{twoFactorRequired}` + 5-min
   `iam_mfa` cookie (aud `mfa`, path /api/auth); `POST /auth/login/2fa {code|recoveryCode}` issues the session (aud `session`).
-  `REQUIRE_2FA_ROLES` → `mustSetUpTwoFactor` → `blockUntilAccountReady` 403 `TWO_FACTOR_SETUP_REQUIRED`. Replay guard via
+  `REQUIRE_2FA_ROLES` (default ADMIN when unset; `none`/empty = optional) → `mustSetUpTwoFactor` → `blockUntilAccountReady` 403 `TWO_FACTOR_SETUP_REQUIRED`. Replay guard via
   `totp_last_step` (conditional update). Admin `POST /users/:id/reset-2fa`. Tests: `freshCode()` clears last step.
 - Always keep at least one active ADMIN (enforced on role change, deactivate, delete).
 

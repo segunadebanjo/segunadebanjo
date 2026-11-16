@@ -50,6 +50,8 @@ The app uses email/password sign-in with three roles:
 | `marketer@example.com` | Marketer |
 | `viewer@example.com` | Viewer |
 
+Admins must also set up two-factor authentication with an authenticator app right after changing the password (see [Two-factor authentication](#two-factor-authentication)).
+
 Re-running the seeder never resets an existing account's password. You can change the demo password with `SEED_USER_PASSWORD` and the admin email with `SEED_ADMIN_EMAIL` before seeding.
 
 **On a real server**, skip the demo accounts and create the first admin from the command line:
@@ -67,7 +69,7 @@ Each user can turn on two-factor authentication on the **Security** page (sideba
 2. They're shown 10 one-time recovery codes once, and can copy or download them.
 3. From then on, signing in needs the password and then the current code from the app. A recovery code works instead if the phone isn't available.
 
-- **Required roles:** set `REQUIRE_2FA_ROLES=ADMIN` (or `ADMIN,MARKETER`) in `server/.env`. Users in those roles must set it up straight after signing in, before they can use anything else, and can't turn it off.
+- **Required roles:** admins must use 2FA by default. Users in a required role must set it up straight after signing in, before they can use anything else, and can't turn it off. To change which roles need it, set `REQUIRE_2FA_ROLES` in `server/.env`: for example `ADMIN,MARKETER`, or `none` to make it optional for everyone.
 - **Lost phone:** an admin clicks **Reset 2FA** for that user on the Users page. This removes their 2FA and signs them out; they then sign in with just their password and set it up again (immediately, if their role requires it).
 - **Password resets by email don't bypass it:** sign-in still asks for the code.
 
