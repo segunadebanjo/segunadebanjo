@@ -157,6 +157,22 @@ Each event goes through these steps:
 
 `eventId` makes the call idempotent.
 
+## Deploying to Render
+
+`render.yaml` is a [Render Blueprint](https://render.com/docs/blueprint-spec) for one Node web service that runs the API and serves the built UI from `insurance-ad-manager-main`.
+
+1. **Create a MySQL 8 database elsewhere.** Render only hosts PostgreSQL. Aiven's free MySQL plan is fine for trying it out; use a paid managed MySQL with backups for real use. Copy its connection string and add `?sslaccept=strict` to the end.
+2. **In Render, choose New → Blueprint** and pick this repository. Render reads `render.yaml` and asks for `DATABASE_URL`, `APP_URL` and `CORS_ORIGIN` (both your `https://….onrender.com` address), plus the optional SMTP and Anthropic values. `AUTH_SECRET` and `WEBHOOK_SECRET_KEY` are generated for you.
+3. **Deploy.** The build installs and builds; database migrations are applied when the service starts, so a wrong `DATABASE_URL` shows up in the service's **Logs** rather than failing the build. Startup first checks `DATABASE_URL` and says in plain words if it's missing, quoted, a PostgreSQL URL or otherwise not `mysql://…`; after that, `P1001` means the host can't be reached and `P1000` means a wrong user or password. The health check is `/api/health`. Every merge into `insurance-ad-manager-main` redeploys.
+4. **Create your own admin** (don't seed the demo accounts online, their password is public). On a paid plan, use the service's Shell; on the free plan, run it from your computer against the online database:
+   ```bash
+   cd server
+   DATABASE_URL="mysql://…?sslaccept=strict" npm run user:create -- --email you@broker.ng --name "Your Name" --role ADMIN --password 'a-long-passw0rd'
+   ```
+   On first sign-in you'll be asked to set up two-factor authentication.
+
+The Blueprint uses the **free** plan, which sleeps after about 15 minutes without visitors, so the hourly metrics sync and optimization jobs don't run while it's asleep. Change `plan: free` to `plan: starter` to keep it awake. To connect real ad accounts, add the `META_*`, `GOOGLE_ADS_*` and `LINKEDIN_*` variables in the service's Environment tab and set `SANDBOX_MODE=false` (see below).
+
 ## Going live
 
 Set `SANDBOX_MODE=false` and fill in the platform credentials in `server/.env`. Each platform switches to its live adapter only when its own credentials are present; otherwise it stays in sandbox. `GET /api/platforms/status` and the sidebar show which mode each platform is in. Even in live mode, publishing creates **PAUSED** campaigns.
