@@ -9,6 +9,7 @@ import { normalise } from '../src/services/ai/creativeGenerator.js';
 import { validateCopy, overallStatus, resolveSpecialAdCategory } from '../src/services/compliance/rules.js';
 import { simulateDay } from '../src/services/platforms/sandbox.js';
 import { buildUtmCampaign } from '../src/lib/strings.js';
+import { hashPassword } from '../src/services/auth/password.js';
 
 const prisma = new PrismaClient();
 
@@ -109,8 +110,30 @@ const DEMO: { product: string; name: string; objective: CampaignObjective; budge
   { product: 'Legacy Term Life', name: 'Term Life – Young Families', objective: 'QUOTE_LEADS', budget: 50000, split: { FACEBOOK: 70, LINKEDIN: 30 }, regions: [], status: 'PAUSED' },
 ];
 
+/**
+ * Demo users. Created only if missing (re-seeding never resets a password). Every seeded account
+ * must change its password at first sign-in.
+ */
+async function seedUsers() {
+  const password = process.env.SEED_USER_PASSWORD || 'ChangeMe-2026';
+  const users = [
+    { email: (process.env.SEED_ADMIN_EMAIL || 'admin@example.com').toLowerCase(), name: 'Admin', role: 'ADMIN' as const },
+    { email: 'marketer@example.com', name: 'Marketing Manager', role: 'MARKETER' as const },
+    { email: 'viewer@example.com', name: 'Read-only Analyst', role: 'VIEWER' as const },
+  ];
+  const created: string[] = [];
+  for (const u of users) {
+    if (await prisma.user.findUnique({ where: { email: u.email } })) continue;
+    await prisma.user.create({ data: { ...u, passwordHash: await hashPassword(password), mustChangePassword: true } });
+    created.push(`${u.email} (${u.role})`);
+  }
+  if (created.length) console.log(`  users created: ${created.join(', ')} — temporary password "${password}" (must be changed at first sign-in)`);
+  else console.log('  users: already present, left unchanged');
+}
+
 async function main() {
   console.log('Seeding…');
+  await seedUsers();
   // Wipe in FK-safe order.
   await prisma.optimizationRecommendation.deleteMany();
   await prisma.optimizationRule.deleteMany();

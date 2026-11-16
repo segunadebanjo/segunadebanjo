@@ -11,6 +11,8 @@ import type {
   Product,
   Recommendation,
   TargetLocations,
+  User,
+  UserRole,
   ValidationReport,
   Variant,
 } from './types';
@@ -31,12 +33,18 @@ async function req<T>(path: string, init: RequestInit & { json?: unknown } = {})
   const { json, ...rest } = init;
   const res = await fetch(`${BASE}${path}`, {
     ...rest,
+    credentials: 'include',
     headers: { ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}), ...rest.headers },
     body: json !== undefined ? JSON.stringify(json) : rest.body,
   });
   if (res.status === 204) return undefined as T;
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(res.status, body.error ?? res.statusText, body.details);
+  if (!res.ok) {
+    // Let the auth layer react to expired sessions / forced password changes anywhere in the app.
+    if (res.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event('auth:unauthorized'));
+    if (res.status === 403 && body.code === 'PASSWORD_CHANGE_REQUIRED') window.dispatchEvent(new Event('auth:password-change'));
+    throw new ApiError(res.status, body.error ?? res.statusText, body.details);
+  }
   return body as T;
 }
 
@@ -46,6 +54,12 @@ const qs = (o: Record<string, string | number | undefined>) => {
   const s = p.toString();
   return s ? `?${s}` : '';
 };
+
+export interface ManagedUser extends User {
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
 
 export interface ProductInput {
   insuranceClass: InsuranceClass;
@@ -69,6 +83,16 @@ export interface CampaignInput {
 }
 
 export const api = {
+  me: () => req<{ user: User }>('/auth/me'),
+  login: (email: string, password: string) => req<{ user: User }>('/auth/login', { method: 'POST', json: { email, password } }),
+  logout: () => req<void>('/auth/logout', { method: 'POST' }),
+  changePassword: (currentPassword: string, newPassword: string) => req<{ user: User }>('/auth/change-password', { method: 'POST', json: { currentPassword, newPassword } }),
+  users: () => req<ManagedUser[]>('/users'),
+  createUser: (u: { email: string; name: string; role: UserRole; password: string }) => req<ManagedUser>('/users', { method: 'POST', json: u }),
+  updateUser: (id: number, u: { name?: string; role?: UserRole; isActive?: boolean }) => req<ManagedUser>(`/users/${id}`, { method: 'PUT', json: u }),
+  resetPassword: (id: number, password: string) => req<ManagedUser>(`/users/${id}/reset-password`, { method: 'POST', json: { password } }),
+  deleteUser: (id: number) => req<void>(`/users/${id}`, { method: 'DELETE' }),
+
   platformStatus: () => req<PlatformStatus>('/platforms/status'),
   products: (q: { class?: InsuranceClass; active?: boolean } = {}) => req<Product[]>(`/products${qs({ class: q.class, active: q.active === undefined ? undefined : String(q.active) })}`),
   createProduct: (p: ProductInput) => req<Product>('/products', { method: 'POST', json: p }),

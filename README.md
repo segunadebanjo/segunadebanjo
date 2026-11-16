@@ -32,9 +32,40 @@ Which address to open:
 - **Development** (`dev:server` + `dev:client`): use `http://localhost:5173`. Port 4100 is the API only; its root page just says where the UI is.
 - **After `npm run build`**: the API server also serves the UI, so `http://localhost:4100` opens the app and every page link works.
 
-### Logging in
+### Signing in
 
-There is no login. The app opens straight to the dashboard, and anyone who can reach the server can use it. Only the conversion webhook is protected, by the `x-api-key` header set from `WEBHOOK_SECRET_KEY`. Run it on your own machine or behind your company VPN/SSO until user accounts are added.
+The app uses email/password sign-in with three roles:
+
+| Role | Can do |
+|---|---|
+| **Admin** | Everything, plus manage users (add, change role, reset password, deactivate, delete) |
+| **Marketer** | Create, publish, activate and optimize campaigns; manage products and optimization rules |
+| **Viewer** | Read-only: dashboards, campaigns, products, conversions |
+
+`npm run setup` (the seeder) creates three demo accounts. They all use the temporary password `ChangeMe-2026` and must change it at first sign-in:
+
+| Email | Role |
+|---|---|
+| `admin@example.com` | Admin |
+| `marketer@example.com` | Marketer |
+| `viewer@example.com` | Viewer |
+
+Re-running the seeder never resets an existing account's password. You can change the demo password with `SEED_USER_PASSWORD` and the admin email with `SEED_ADMIN_EMAIL` before seeding.
+
+**On a real server**, skip the demo accounts and create the first admin from the command line:
+
+```bash
+npm --prefix server run user:create -- --email you@broker.ng --name "Your Name" --role ADMIN --password 'a-long-passw0rd'
+```
+
+Then add everyone else from the **Users** page. New users get a temporary password and must replace it at first sign-in.
+
+Security notes:
+- **Passwords:** stored as scrypt hashes. The minimum is 10 characters, with letters and numbers.
+- **Sessions:** a signed, httpOnly, SameSite=Lax cookie that lasts `AUTH_SESSION_HOURS` (12 by default). The user and role are re-checked on every request, so deactivating someone, changing their role, or resetting or changing a password takes effect immediately.
+- **Sign-in rate limit:** 10 attempts per account per IP, and 100 per IP, every 15 minutes.
+- **Production:** set `AUTH_SECRET` (32+ random characters) and serve over HTTPS. The server refuses to start in production without `AUTH_SECRET`, and cookies are HTTPS-only there by default.
+- **Webhook:** `/api/webhooks/conversions` keeps using its `x-api-key`, not user sign-in. `/api/health` stays public.
 
 During development, run `npm --prefix server run db:migrate` (`prisma migrate dev`) after you edit `prisma/schema.prisma`. To rebuild the demo data, run `npm --prefix server run db:reset`.
 
@@ -97,4 +128,3 @@ Set `SANDBOX_MODE=false` and fill in the platform credentials in `server/.env`. 
 
 The live adapters (Meta Graph API v21, Google Ads REST v18, LinkedIn versioned REST 202410) follow the public API shapes, but they have only run against the sandbox in this repository. Test them against a real ad account before you rely on them. In particular, check API version drift and Google Display image assets, which need uploading before a responsive display ad can be attached.
 
-> The admin API (everything under `/api` except the webhook) has no user authentication. Deploy it behind your SSO/VPN, or add an auth layer, before you expose it.

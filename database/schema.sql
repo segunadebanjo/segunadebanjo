@@ -1,11 +1,13 @@
 -- Insurance Ad Manager — raw MySQL 8.0 schema backup.
--- Mirrors server/prisma/migrations/*_init/migration.sql. Apply with:
+-- Mirrors server/prisma/migrations/* (in order). Apply with:
 --   mysql -u root -p < database/schema.sql      (or: cd server && npm run db:apply-sql)
+-- Use this OR Prisma migrations on a given database, not both.
 
 CREATE DATABASE IF NOT EXISTS `insurance_ads` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `insurance_ads`;
 SET FOREIGN_KEY_CHECKS = 0;
 
+-- ===== 20261116110856_init =====
 -- CreateTable
 CREATE TABLE IF NOT EXISTS `insurance_products` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
@@ -195,5 +197,24 @@ ALTER TABLE `optimization_recommendations` ADD CONSTRAINT `optimization_recommen
 
 -- AddForeignKey
 ALTER TABLE `optimization_recommendations` ADD CONSTRAINT `optimization_recommendations_deployment_id_fkey` FOREIGN KEY (`deployment_id`) REFERENCES `platform_deployments`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- ===== 20261116115429_add_users =====
+-- CreateTable
+CREATE TABLE IF NOT EXISTS `users` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `email` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(120) NOT NULL,
+    `password_hash` VARCHAR(255) NOT NULL,
+    `role` ENUM('ADMIN', 'MARKETER', 'VIEWER') NOT NULL DEFAULT 'VIEWER',
+    `is_active` BOOLEAN NOT NULL DEFAULT true,
+    `must_change_password` BOOLEAN NOT NULL DEFAULT false,
+    `token_version` INTEGER NOT NULL DEFAULT 0,
+    `last_login_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `users_email_key`(`email`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

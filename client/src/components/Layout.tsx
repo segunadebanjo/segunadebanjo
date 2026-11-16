@@ -1,19 +1,25 @@
-import { NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, FlaskConical, Megaphone, PackageOpen, Plus, ShieldCheck, Sparkles, Webhook, Zap } from 'lucide-react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { BarChart3, FlaskConical, KeyRound, LogOut, Megaphone, PackageOpen, Plus, ShieldCheck, Sparkles, Users, Webhook, Zap } from 'lucide-react';
+import { ROLE_LABEL, useAuth } from '../auth';
 import { api } from '../api';
 import { cx, useAsync } from './ui';
 
-const NAV = [
-  { to: '/', label: 'Dashboard', icon: BarChart3, end: true },
-  { to: '/campaigns', label: 'Campaigns', icon: Megaphone, end: true },
-  { to: '/campaigns/new', label: 'New campaign', icon: Plus, end: true },
-  { to: '/products', label: 'Products', icon: PackageOpen, end: false },
-  { to: '/optimization', label: 'Optimization', icon: Zap, end: false },
-  { to: '/conversions', label: 'Conversions', icon: Webhook, end: false },
+type Access = 'all' | 'write' | 'admin';
+const NAV: { to: string; label: string; icon: typeof BarChart3; end: boolean; access: Access }[] = [
+  { to: '/', label: 'Dashboard', icon: BarChart3, end: true, access: 'all' },
+  { to: '/campaigns', label: 'Campaigns', icon: Megaphone, end: true, access: 'all' },
+  { to: '/campaigns/new', label: 'New campaign', icon: Plus, end: true, access: 'write' },
+  { to: '/products', label: 'Products', icon: PackageOpen, end: false, access: 'all' },
+  { to: '/optimization', label: 'Optimization', icon: Zap, end: false, access: 'all' },
+  { to: '/conversions', label: 'Conversions', icon: Webhook, end: false, access: 'all' },
+  { to: '/users', label: 'Users', icon: Users, end: false, access: 'admin' },
 ];
 
 export function Layout() {
   const status = useAsync(() => api.platformStatus(), []);
+  const { user, canWrite, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
+  const nav = NAV.filter((n) => n.access === 'all' || (n.access === 'write' && canWrite) || (n.access === 'admin' && isAdmin));
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="border-b border-slate-200 bg-white md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:border-r md:border-b-0">
@@ -27,7 +33,7 @@ export function Layout() {
           </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:overflow-visible">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {nav.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -41,6 +47,30 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+        {user && (
+          <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-5 py-3 md:block">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-slate-800">{user.name}</p>
+              <p className="truncate text-xs text-slate-500">
+                {user.email} · <span className="font-medium text-brand-700">{ROLE_LABEL[user.role]}</span>
+              </p>
+            </div>
+            <div className="flex gap-1 md:mt-2">
+              <NavLink to="/account/password" title="Change password" className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100">
+                <KeyRound className="h-3.5 w-3.5" /> Password
+              </NavLink>
+              <button
+                onClick={async () => {
+                  await logout();
+                  navigate('/login', { replace: true });
+                }}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100"
+              >
+                <LogOut className="h-3.5 w-3.5" /> Sign out
+              </button>
+            </div>
+          </div>
+        )}
         {status.data && (
           <div className="hidden space-y-1.5 border-t border-slate-100 px-5 py-4 text-xs text-slate-500 md:block">
             {status.data.sandboxMode && (

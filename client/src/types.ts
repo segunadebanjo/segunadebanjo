@@ -181,3 +181,12 @@ export interface ValidationReport {
   readyToPublish: boolean;
   aiError?: string;
 }
+
+export type UserRole = 'ADMIN' | 'MARKETER' | 'VIEWER';
+export interface User {
+  id: number;
+  email: string;
+  name: string;
+  role: UserRole;
+  mustChangePassword: boolean;
+}

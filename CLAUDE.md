@@ -79,6 +79,7 @@ All tables InnoDB / utf8mb4. FK columns are indexed.
 | `conversion_events` | id, external_event_id UNIQUE NULL (idempotency), click_id VARCHAR INDEX, click_id_type (fbclid/gclid/li_fat_id), utm_campaign, campaign_id FK NULL, deployment_id FK NULL, platform NULL, event_type ENUM(QUOTE_STARTED, APPLICATION_SUBMITTED, POLICY_PURCHASED), policy_premium_value DECIMAL(12,2), currency, hashed_email NULL, dispatched_to_platforms BOOLEAN, dispatch_results JSON, created_at |
 | `performance_metrics` | id, deployment_id FK, metric_date DATE, impressions INT, clicks INT, spend DECIMAL(12,2), quotes_started INT, policies_sold INT, revenue_generated DECIMAL(12,2). UNIQUE(deployment_id, metric_date) |
 | `optimization_rules` | id, name, rule_type ENUM(PAUSE_ZERO_QUOTES, SCALE_HIGH_ROAS, FLAG_HIGH_CPA), spend_threshold DECIMAL(12,2), target_roas DECIMAL(8,2), max_cost_per_policy DECIMAL(12,2), budget_increase_pct INT, lookback_days INT, mode ENUM(RECOMMEND, AUTO_APPLY), is_enabled |
+| `users` | id, email UNIQUE, name, password_hash (scrypt), role ENUM(ADMIN, MARKETER, VIEWER), is_active, must_change_password, token_version (bumped to revoke sessions), last_login_at, created_at, updated_at |
 | `optimization_recommendations` | id, rule_id FK, deployment_id FK, action ENUM(PAUSE, INCREASE_BUDGET, FLAG), reason, suggested_budget DECIMAL(12,2) NULL, metrics_snapshot JSON, status ENUM(OPEN, APPLIED, DISMISSED), created_at, resolved_at |
 
 Extra columns/tables beyond the original brief (utm_campaign, variant_id, keywords,
@@ -133,11 +134,23 @@ BLOCKs, so results stay reproducible.
 **Publishing gate**: `POST /campaigns/:id/publish` refuses (409) if any selected variant is BLOCKED or
 targeting fails SAC rules.
 
+## Authentication & roles
+- Email/password; scrypt hashes (`services/auth/password.ts`); HS256 JWT in httpOnly SameSite=Lax cookie
+  `iam_session` (`services/auth/session.ts`), signed with `AUTH_SECRET` (required in production).
+- `middleware/auth.ts`: `requireAuth` reloads the user every request (inactive or tokenVersion mismatch → 401);
+  `blockUntilPasswordChanged` (403 `PASSWORD_CHANGE_REQUIRED`); `writeRequiresMarketer` (non-GET needs
+  ADMIN/MARKETER); `requireRole(...)`.
+- Public: `/api/health`, `/api/auth/*`, `/api/webhooks/*` (API key). `/api/users` is ADMIN only; product DELETE is ADMIN only.
+- Client: `src/auth.tsx` (`AuthProvider`, `useAuth().canWrite/isAdmin`, `RequireAuth roles=[…]`); any 401 signs the UI out.
+- Always keep at least one active ADMIN (enforced on role change, deactivate, delete).
+
 ## REST API (all JSON, base `/api`)
 
 | Method & path | Purpose |
 |---|---|
-| `GET /health` | liveness + DB check |
+| `GET /health` | liveness + DB check (public) |
+| `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` · `POST /auth/change-password` | session cookie sign-in |
+| `GET /users` · `POST /users` · `PUT /users/:id` · `POST /users/:id/reset-password` · `DELETE /users/:id` | ADMIN user management |
 | `GET /products` `?class=&active=` | list products |
 | `GET /products/:id` · `POST /products` · `PUT /products/:id` · `DELETE /products/:id` | CRUD (delete → 409 if campaigns reference it; use `is_active=false`) |
 | `GET /campaigns` `?status=&class=` | list with product + deployment summary |

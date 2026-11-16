@@ -6,11 +6,13 @@ import { PLATFORM_LABEL, label, money } from '../format';
 import type { Recommendation } from '../types';
 import { Badge, Button, Card, EmptyState, ErrorBanner, PageHeader, Spinner, cx, filterCls, useAsync } from '../components/ui';
 import { RulesPanel } from '../components/RulesPanel';
+import { useAuth } from '../auth';
 
 const ICON = { PAUSE: PauseCircle, INCREASE_BUDGET: TrendingUp, FLAG: Flag };
 const TONE = { PAUSE: 'bg-rose-100 text-rose-700', INCREASE_BUDGET: 'bg-emerald-100 text-emerald-700', FLAG: 'bg-amber-100 text-amber-700' };
 
 export function Optimization() {
+  const { canWrite } = useAuth();
   const [status, setStatus] = useState('OPEN');
   const recs = useAsync(() => api.recommendations(status || undefined), [status]);
   const [busy, setBusy] = useState<number | null>(null);
@@ -83,7 +85,9 @@ export function Optimization() {
                           )}
                         </p>
                       </div>
-                      {r.status === 'OPEN' ? (
+                      {r.status === 'OPEN' && !canWrite ? (
+                        <Badge>Open</Badge>
+                      ) : r.status === 'OPEN' ? (
                         <div className="flex gap-2">
                           <Button variant="secondary" icon={<X className="h-4 w-4" />} disabled={busy === r.id} onClick={() => act(r, 'dismiss')}>
                             Dismiss
