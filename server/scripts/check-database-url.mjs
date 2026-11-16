@@ -57,4 +57,13 @@ if (!url.pathname || url.pathname === '/') {
   fail('it has no database name after the host.', 'add /DATABASE_NAME after HOST:PORT (e.g. /defaultdb).');
 }
 
+// On a hosting platform (Render sets RENDER=true) there is no MySQL on the same machine.
+const isLocalHost = ['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0'].includes(url.hostname);
+if (isLocalHost && process.env.RENDER) {
+  fail(
+    `the host is ${url.hostname}, which on a hosting server means "this same machine", and no MySQL runs there.`,
+    'use the host name of your online MySQL database (e.g. mysql-xxxx.aivencloud.com) and its port.',
+  );
+}
+
 console.log(`✓ DATABASE_URL looks valid (MySQL at ${url.hostname}:${url.port || 3306}${url.pathname}).`);
