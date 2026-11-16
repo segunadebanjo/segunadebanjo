@@ -1,6 +1,11 @@
-// Run before migrations on hosted deploys (see render.yaml). Prisma's own error for a bad
+// Runs before every `npm run db:deploy` (see package.json). Prisma's own error for a bad
 // DATABASE_URL is a terse "P1012 ... env("DATABASE_URL")"; this says what's actually wrong.
 // Plain Node (no tsx/TypeScript) so it works before anything else. Never prints the password.
+
+import { existsSync } from 'node:fs';
+
+// Locally the URL usually lives in server/.env (which Prisma reads itself); load it the same way.
+if (!process.env.DATABASE_URL && existsSync('.env')) process.loadEnvFile('.env');
 
 const raw = process.env.DATABASE_URL;
 
@@ -50,6 +55,15 @@ try {
 if (!url.hostname) fail('it has no host name.', 'copy the full connection string from your database provider.');
 if (!url.pathname || url.pathname === '/') {
   fail('it has no database name after the host.', 'add /DATABASE_NAME after HOST:PORT (e.g. /defaultdb).');
+}
+
+// On a hosting platform (Render sets RENDER=true) there is no MySQL on the same machine.
+const isLocalHost = ['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0'].includes(url.hostname);
+if (isLocalHost && process.env.RENDER) {
+  fail(
+    `the host is ${url.hostname}, which on a hosting server means "this same machine", and no MySQL runs there.`,
+    'use the host name of your online MySQL database (e.g. mysql-xxxx.aivencloud.com) and its port.',
+  );
 }
 
 console.log(`✓ DATABASE_URL looks valid (MySQL at ${url.hostname}:${url.port || 3306}${url.pathname}).`);
