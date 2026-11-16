@@ -5,8 +5,10 @@ import { api } from '../api';
 import { CLASS_LABEL, PLATFORM_COLOR, PLATFORM_LABEL, STATUS_STYLE, int, label, money, roas } from '../format';
 import { Badge, Button, Card, ErrorBanner, PageHeader, Spinner, useAsync } from '../components/ui';
 import { VariantCard } from '../components/VariantCard';
+import { useAuth } from '../auth';
 
 export function CampaignDetail() {
+  const { canWrite } = useAuth();
   const id = Number(useParams().id);
   const c = useAsync(() => api.campaign(id), [id]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -53,6 +55,7 @@ export function CampaignDetail() {
           </span>
         }
         actions={
+          canWrite && (
           <>
             {draft && (
               <Link to={`/campaigns/new?id=${campaign.id}&step=${campaign.variants.length ? 2 : 1}`}>
@@ -82,6 +85,7 @@ export function CampaignDetail() {
               </Button>
             )}
           </>
+          )
         }
       />
       <ErrorBanner error={error} onClose={() => setError(null)} />

@@ -4,6 +4,7 @@ import { api } from '../api';
 import { n } from '../format';
 import type { OptimizationRule } from '../types';
 import { Badge, Button, Card, ErrorBanner, Spinner, inputCls, useAsync } from './ui';
+import { useAuth } from '../auth';
 
 const DESCRIPTION: Record<OptimizationRule['ruleType'], string> = {
   PAUSE_ZERO_QUOTES: 'Pause a deployment that spends at least the threshold without a single quote started.',
@@ -23,6 +24,8 @@ const toDraft = (r: OptimizationRule): Draft => ({
 });
 
 export function RulesPanel({ onRun }: { onRun?: () => void }) {
+  const { canWrite } = useAuth();
+  const readOnly = !canWrite;
   const rules = useAsync(() => api.rules(), []);
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
   const [saving, setSaving] = useState<number | null>(null);
@@ -82,9 +85,13 @@ export function RulesPanel({ onRun }: { onRun?: () => void }) {
         </span>
       }
       actions={
-        <Button variant="secondary" icon={<Play className="h-4 w-4" />} loading={running} onClick={run}>
-          Run now
-        </Button>
+        readOnly ? (
+          <Badge>View only</Badge>
+        ) : (
+          <Button variant="secondary" icon={<Play className="h-4 w-4" />} loading={running} onClick={run}>
+            Run now
+          </Button>
+        )
       }
     >
       <ErrorBanner error={error ?? rules.error} onClose={() => setError(null)} />
@@ -104,11 +111,11 @@ export function RulesPanel({ onRun }: { onRun?: () => void }) {
                     <p className="text-xs text-slate-500">{DESCRIPTION[r.ruleType]}</p>
                   </div>
                   <label className="flex items-center gap-2 text-xs text-slate-600">
-                    <input type="checkbox" checked={d.isEnabled} onChange={(e) => set(r, { isEnabled: e.target.checked })} className="h-4 w-4 accent-brand-700" />
+                    <input type="checkbox" disabled={readOnly} checked={d.isEnabled} onChange={(e) => set(r, { isEnabled: e.target.checked })} className="h-4 w-4 accent-brand-700" />
                     Enabled
                   </label>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6">
+                <fieldset disabled={readOnly} className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6">
                   <Small label="Spend threshold (₦)">
                     <input className={inputCls} inputMode="decimal" value={d.spendThreshold} onChange={(e) => set(r, { spendThreshold: e.target.value })} />
                   </Small>
@@ -136,12 +143,14 @@ export function RulesPanel({ onRun }: { onRun?: () => void }) {
                       <option value="AUTO_APPLY">Auto-apply</option>
                     </select>
                   </Small>
-                  <div className="flex items-end">
-                    <Button variant={dirty ? 'primary' : 'secondary'} disabled={!dirty} loading={saving === r.id} icon={<Save className="h-4 w-4" />} onClick={() => save(r)}>
-                      Save
-                    </Button>
-                  </div>
-                </div>
+                  {!readOnly && (
+                    <div className="flex items-end">
+                      <Button variant={dirty ? 'primary' : 'secondary'} disabled={!dirty} loading={saving === r.id} icon={<Save className="h-4 w-4" />} onClick={() => save(r)}>
+                        Save
+                      </Button>
+                    </div>
+                  )}
+                </fieldset>
                 {d.mode === 'AUTO_APPLY' && <Badge className="mt-3 bg-amber-100 text-amber-800">Changes live budgets/status automatically</Badge>}
               </div>
             );

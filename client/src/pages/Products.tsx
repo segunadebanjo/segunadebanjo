@@ -3,6 +3,7 @@ import { ExternalLink, PackageOpen, Pencil, Plus, ShieldCheck, Trash2 } from 'lu
 import { api, type ProductInput } from '../api';
 import { CLASS_LABEL, money, n } from '../format';
 import { CLASSES, type InsuranceClass, type Product } from '../types';
+import { useAuth } from '../auth';
 import { Badge, Button, Card, EmptyState, ErrorBanner, Field, Modal, PageHeader, Spinner, inputCls, filterCls, useAsync } from '../components/ui';
 
 const blank = (): ProductInput => ({
@@ -18,6 +19,7 @@ const blank = (): ProductInput => ({
 });
 
 export function Products() {
+  const { canWrite, isAdmin } = useAuth();
   const [cls, setCls] = useState<InsuranceClass | ''>('');
   const list = useAsync(() => api.products({ class: cls || undefined }), [cls]);
   const [editing, setEditing] = useState<{ id: number | null; form: ProductInput; benefitsText: string } | null>(null);
@@ -90,9 +92,11 @@ export function Products() {
                 </option>
               ))}
             </select>
-            <Button icon={<Plus className="h-4 w-4" />} onClick={() => open()}>
-              Add product
-            </Button>
+            {canWrite && (
+              <Button icon={<Plus className="h-4 w-4" />} onClick={() => open()}>
+                Add product
+              </Button>
+            )}
           </>
         }
       />
@@ -115,12 +119,12 @@ export function Products() {
                   <h3 className="mt-2 font-semibold text-slate-900">{p.name}</h3>
                 </div>
                 <div className="flex gap-1">
-                  <button aria-label={`Edit ${p.name}`} onClick={() => open(p)} className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                  {canWrite && <button aria-label={`Edit ${p.name}`} onClick={() => open(p)} className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                     <Pencil className="h-4 w-4" />
-                  </button>
-                  <button aria-label={`Delete ${p.name}`} onClick={() => remove(p)} className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                  </button>}
+                  {isAdmin && <button aria-label={`Delete ${p.name}`} onClick={() => remove(p)} className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                  </button>}
                 </div>
               </div>
               <p className="mt-2 text-sm text-slate-600">{p.targetAudienceSummary}</p>
@@ -149,7 +153,7 @@ export function Products() {
                 </a>
               </dl>
               <label className="mt-3 flex items-center gap-2 text-xs text-slate-600">
-                <input type="checkbox" className="h-4 w-4 accent-brand-700" checked={p.isActive} onChange={() => toggle(p)} /> Active (available for new campaigns)
+                <input type="checkbox" className="h-4 w-4 accent-brand-700" checked={p.isActive} disabled={!canWrite} onChange={() => toggle(p)} /> Active (available for new campaigns)
               </label>
             </Card>
           ))}

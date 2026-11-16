@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Send, Webhook } from 'lucide-react';
 import { api } from '../api';
 import { PLATFORM_LABEL, label, money } from '../format';
+import { useAuth } from '../auth';
 import { Badge, Button, Card, EmptyState, ErrorBanner, Field, PageHeader, Spinner, inputCls, useAsync } from '../components/ui';
 
 const CURL = `curl -X POST "$API_URL/api/webhooks/conversions" \\
@@ -18,6 +19,7 @@ const CURL = `curl -X POST "$API_URL/api/webhooks/conversions" \\
   }'`;
 
 export function Conversions() {
+  const { canWrite } = useAuth();
   const events = useAsync(() => api.conversions(), []);
   const status = useAsync(() => api.platformStatus(), []);
   const [form, setForm] = useState({ clickType: 'fbclid', clickId: 'IwAR-demo-' + Math.random().toString(36).slice(2, 8), utm: '', utmSource: '', eventType: 'POLICY_PURCHASED', value: '85000' });
@@ -56,7 +58,7 @@ export function Conversions() {
             </p>
             <pre className="mt-3 overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100">{CURL}</pre>
           </Card>
-          {status.data?.sandboxMode && (
+          {status.data?.sandboxMode && canWrite && (
             <Card title="Simulate an event (sandbox)">
               <ErrorBanner error={error} onClose={() => setError(null)} />
               <div className="grid grid-cols-2 gap-3">

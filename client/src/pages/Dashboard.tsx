@@ -7,6 +7,7 @@ import { CLASS_LABEL, PLATFORM_COLOR, PLATFORM_LABEL, compact, int, money, pct, 
 import { CLASSES, PLATFORMS, type Kpis } from '../types';
 import { Button, Card, EmptyState, ErrorBanner, PageHeader, Spinner, filterCls, useAsync } from '../components/ui';
 import { RulesPanel } from '../components/RulesPanel';
+import { useAuth } from '../auth';
 
 const KPI_DEFS: { key: keyof Kpis; label: string; fmt: (v: number | null) => string; hint?: string }[] = [
   { key: 'spend', label: 'Spend', fmt: (v) => money(v, 'NGN', true) },
@@ -23,6 +24,7 @@ const KPI_DEFS: { key: keyof Kpis; label: string; fmt: (v: number | null) => str
 const shortDate = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 export function Dashboard() {
+  const { canWrite } = useAuth();
   const [cls, setCls] = useState('');
   const [platform, setPlatform] = useState('');
   const [days, setDays] = useState(30);
@@ -72,9 +74,11 @@ export function Dashboard() {
                 </option>
               ))}
             </select>
-            <Button variant="secondary" icon={<RefreshCw className="h-4 w-4" />} loading={syncing} onClick={sync}>
-              Sync metrics
-            </Button>
+            {canWrite && (
+              <Button variant="secondary" icon={<RefreshCw className="h-4 w-4" />} loading={syncing} onClick={sync}>
+                Sync metrics
+              </Button>
+            )}
           </>
         }
       />

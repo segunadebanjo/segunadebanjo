@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
@@ -7,7 +8,10 @@ import morgan from 'morgan';
 import { config } from './config.js';
 import { prisma } from './db.js';
 import { ah } from './lib/http.js';
+import { blockUntilPasswordChanged, requireAuth, requireRole, writeRequiresMarketer } from './middleware/auth.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { authRouter } from './routes/auth.js';
+import { usersRouter } from './routes/users.js';
 import { campaignsRouter } from './routes/campaigns.js';
 import { complianceRouter } from './routes/compliance.js';
 import { analyticsRouter, conversionsRouter, metricsRouter, optimizationRouter, platformsRouter } from './routes/misc.js';
@@ -18,8 +22,9 @@ export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
   app.use(helmet());
-  app.use(cors({ origin: config.CORS_ORIGIN.split(',').map((s) => s.trim()) }));
+  app.use(cors({ origin: config.CORS_ORIGIN.split(',').map((s) => s.trim()), credentials: true }));
   app.use(express.json({ limit: '1mb' }));
+  app.use(cookieParser());
   if (config.NODE_ENV !== 'test') app.use(morgan('dev'));
 
   app.get(
@@ -29,10 +34,18 @@ export function createApp() {
       res.json({ ok: true, sandboxMode: config.SANDBOX_MODE, time: new Date().toISOString() });
     }),
   );
+  // ---- Public: sign-in and the API-key-protected ERP webhook ----
+  app.use('/api/auth', authRouter);
+  app.use('/api/webhooks', webhooksRouter);
+
+  // ---- Everything below needs a signed-in user ----
+  // Every role can read; writes need MARKETER or ADMIN; user management needs ADMIN.
+  const signedIn = [requireAuth, blockUntilPasswordChanged];
+  app.use('/api/users', ...signedIn, requireRole('ADMIN'), usersRouter);
+  app.use('/api', ...signedIn, writeRequiresMarketer);
   app.use('/api/products', productsRouter);
   app.use('/api/campaigns', campaignsRouter);
   app.use('/api/compliance', complianceRouter);
-  app.use('/api/webhooks', webhooksRouter);
   app.use('/api/conversions', conversionsRouter);
   app.use('/api/analytics', analyticsRouter);
   app.use('/api/optimization', optimizationRouter);

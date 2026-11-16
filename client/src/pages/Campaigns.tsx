@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { Megaphone, Plus } from 'lucide-react';
 import { api } from '../api';
 import { CLASS_LABEL, PLATFORM_COLOR, PLATFORM_LABEL, STATUS_STYLE, label, money } from '../format';
+import { useAuth } from '../auth';
 import { Badge, Button, Card, EmptyState, ErrorBanner, PageHeader, Spinner, filterCls, useAsync } from '../components/ui';
 
 export function Campaigns() {
+  const { canWrite } = useAuth();
   const [status, setStatus] = useState('');
   const list = useAsync(() => api.campaigns({ status: status || undefined }), [status]);
   return (
@@ -23,9 +25,11 @@ export function Campaigns() {
                 </option>
               ))}
             </select>
-            <Link to="/campaigns/new">
-              <Button icon={<Plus className="h-4 w-4" />}>New campaign</Button>
-            </Link>
+            {canWrite && (
+              <Link to="/campaigns/new">
+                <Button icon={<Plus className="h-4 w-4" />}>New campaign</Button>
+              </Link>
+            )}
           </>
         }
       />
@@ -35,9 +39,9 @@ export function Campaigns() {
           <Spinner />
         ) : !list.data?.length ? (
           <EmptyState icon={<Megaphone className="h-10 w-10" />} title="No campaigns">
-            <Link to="/campaigns/new" className="text-brand-700 hover:underline">
+            {canWrite && <Link to="/campaigns/new" className="text-brand-700 hover:underline">
               Create your first campaign
-            </Link>
+            </Link>}
           </EmptyState>
         ) : (
           <div className="overflow-x-auto">

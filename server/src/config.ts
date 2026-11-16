@@ -47,9 +47,31 @@ const schema = z.object({
   METRICS_SYNC_CRON: z.string().default('0 * * * *'),
   OPTIMIZATION_CRON: z.string().default('15 * * * *'),
   DISABLE_CRON: bool(false),
+  AUTH_SECRET: opt,
+  AUTH_SESSION_HOURS: z.coerce.number().positive().max(24 * 30).default(12),
+  AUTH_COOKIE_SECURE: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined || v === '' ? undefined : ['1', 'true', 'yes', 'on'].includes(v.toLowerCase()))),
 });
 
-export const config = schema.parse(process.env);
+const parsed = schema.parse(process.env);
+
+const DEV_AUTH_SECRET = 'dev-only-insecure-secret-change-me';
+if (!parsed.AUTH_SECRET && parsed.NODE_ENV === 'production') {
+  throw new Error('AUTH_SECRET must be set in production (a long random string used to sign login sessions).');
+}
+if (parsed.AUTH_SECRET && parsed.AUTH_SECRET.length < 32 && parsed.NODE_ENV === 'production') {
+  throw new Error('AUTH_SECRET must be at least 32 characters in production.');
+}
+
+export const config = {
+  ...parsed,
+  AUTH_SECRET: parsed.AUTH_SECRET ?? DEV_AUTH_SECRET,
+  /** Secure cookies by default in production (requires HTTPS); override with AUTH_COOKIE_SECURE. */
+  AUTH_COOKIE_SECURE: parsed.AUTH_COOKIE_SECURE ?? parsed.NODE_ENV === 'production',
+};
+export const usingDevAuthSecret = !parsed.AUTH_SECRET;
 export type AppConfig = typeof config;
 
 export const credentials = {

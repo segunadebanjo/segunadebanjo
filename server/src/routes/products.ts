@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../db.js';
 import { ah, HttpError, notFound, parseBody, parseId } from '../lib/http.js';
 import { dec } from '../lib/money.js';
+import { requireRole } from '../middleware/auth.js';
 
 const ClassEnum = z.enum(['AUTO_MOTOR', 'HEALTH_HMO', 'LIFE', 'PROPERTY', 'COMMERCIAL_SME', 'TRAVEL']);
 
@@ -67,6 +68,7 @@ productsRouter.put(
 
 productsRouter.delete(
   '/:id',
+  requireRole('ADMIN'),
   ah(async (req, res) => {
     const id = parseId(req.params.id);
     const used = await prisma.campaign.count({ where: { productId: id } });
