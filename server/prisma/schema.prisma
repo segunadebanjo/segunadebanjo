@@ -273,10 +273,18 @@ model User {
   /// Bumped on password change / logout-everywhere to invalidate existing sessions.
   tokenVersion       Int       @default(0) @map("token_version")
   lastLoginAt        DateTime? @map("last_login_at")
+  /// TOTP secret, AES-256-GCM encrypted. Null until two-factor authentication is enabled.
+  totpSecretEnc        String?   @map("totp_secret_enc") @db.VarChar(255)
+  /// Secret generated during setup, not active until the user confirms a code.
+  totpPendingSecretEnc String?   @map("totp_pending_secret_enc") @db.VarChar(255)
+  twoFactorEnabledAt   DateTime? @map("two_factor_enabled_at")
+  /// Last accepted TOTP time step, so a code can't be replayed.
+  totpLastStep         Int?      @map("totp_last_step")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
   passwordResetTokens PasswordResetToken[]
+  recoveryCodes       TwoFactorRecoveryCode[]
 
   @@map("users")
 }
@@ -296,4 +304,18 @@ model PasswordResetToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("password_reset_tokens")
+}
+
+/// Single-use 2FA recovery codes (SHA-256 hashes only).
+model TwoFactorRecoveryCode {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  codeHash  String    @map("code_hash") @db.Char(64)
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("two_factor_recovery_codes")
 }

@@ -58,7 +58,8 @@ describe.runIf(run)('authentication & roles (MySQL)', () => {
   it('signs in with an httpOnly cookie, case-insensitive email, and /me returns the user', async () => {
     const agent = request.agent(app);
     const res = await agent.post('/api/auth/login').send({ email: email('VIEWER').toUpperCase(), password: PW }).expect(200);
-    expect(res.headers['set-cookie'][0]).toMatch(/iam_session=.*HttpOnly.*SameSite=Lax/i);
+    const cookies = ([] as string[]).concat(res.headers['set-cookie'] ?? []);
+    expect(cookies.find((c) => c.startsWith('iam_session='))).toMatch(/iam_session=.+HttpOnly.*SameSite=Lax/i);
     expect(res.body.user).toMatchObject({ email: email('VIEWER'), role: 'VIEWER' });
     expect(res.body.user.passwordHash).toBeUndefined();
     const me = await agent.get('/api/auth/me').expect(200);

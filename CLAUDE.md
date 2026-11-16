@@ -81,6 +81,7 @@ All tables InnoDB / utf8mb4. FK columns are indexed.
 | `optimization_rules` | id, name, rule_type ENUM(PAUSE_ZERO_QUOTES, SCALE_HIGH_ROAS, FLAG_HIGH_CPA), spend_threshold DECIMAL(12,2), target_roas DECIMAL(8,2), max_cost_per_policy DECIMAL(12,2), budget_increase_pct INT, lookback_days INT, mode ENUM(RECOMMEND, AUTO_APPLY), is_enabled |
 | `users` | id, email UNIQUE, name, password_hash (scrypt), role ENUM(ADMIN, MARKETER, VIEWER), is_active, must_change_password, token_version (bumped to revoke sessions), last_login_at, created_at, updated_at |
 | `password_reset_tokens` | id, user_id FK, token_hash CHAR(64) UNIQUE (sha256), expires_at, used_at, requested_ip, created_at |
+| `two_factor_recovery_codes` | id, user_id FK, code_hash CHAR(64) (sha256), used_at, created_at. `users` also has totp_secret_enc, totp_pending_secret_enc (AES-256-GCM), two_factor_enabled_at, totp_last_step |
 | `optimization_recommendations` | id, rule_id FK, deployment_id FK, action ENUM(PAUSE, INCREASE_BUDGET, FLAG), reason, suggested_budget DECIMAL(12,2) NULL, metrics_snapshot JSON, status ENUM(OPEN, APPLIED, DISMISSED), created_at, resolved_at |
 
 Extra columns/tables beyond the original brief (utm_campaign, variant_id, keywords,
@@ -147,6 +148,10 @@ targeting fails SAC rules.
   run in the background); one-time sha256-hashed tokens, `PASSWORD_RESET_TTL_MINUTES`; reset bumps tokenVersion.
   Mail via `services/mail/mailer.ts`: `MAIL_TRANSPORT` smtp | log (dev console) | memory (tests, `outbox`). Links use `APP_URL`.
   morgan redacts `token=` from logged URLs.
+- 2FA (`services/auth/totp.ts`, `twoFactor.ts`, `secretBox.ts`): login with 2FA on returns `{twoFactorRequired}` + 5-min
+  `iam_mfa` cookie (aud `mfa`, path /api/auth); `POST /auth/login/2fa {code|recoveryCode}` issues the session (aud `session`).
+  `REQUIRE_2FA_ROLES` → `mustSetUpTwoFactor` → `blockUntilAccountReady` 403 `TWO_FACTOR_SETUP_REQUIRED`. Replay guard via
+  `totp_last_step` (conditional update). Admin `POST /users/:id/reset-2fa`. Tests: `freshCode()` clears last step.
 - Always keep at least one active ADMIN (enforced on role change, deactivate, delete).
 
 ## REST API (all JSON, base `/api`)
@@ -155,6 +160,7 @@ targeting fails SAC rules.
 |---|---|
 | `GET /health` | liveness + DB check (public) |
 | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` · `POST /auth/change-password` | session cookie sign-in |
+| `POST /auth/login/2fa` · `GET /auth/2fa` · `POST /auth/2fa/setup` · `/enable` · `/disable` · `/recovery-codes` | two-factor sign-in & management |
 | `POST /auth/forgot-password` · `POST /auth/reset-password/validate` · `POST /auth/reset-password` | email reset link flow (public, rate-limited) |
 | `GET /users` · `POST /users` · `PUT /users/:id` · `POST /users/:id/reset-password` · `DELETE /users/:id` | ADMIN user management |
 | `GET /products` `?class=&active=` | list products |

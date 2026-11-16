@@ -11,6 +11,7 @@ import type {
   Product,
   Recommendation,
   TargetLocations,
+  TwoFactorStatus,
   User,
   UserRole,
   ValidationReport,
@@ -43,6 +44,7 @@ async function req<T>(path: string, init: RequestInit & { json?: unknown } = {})
     // Let the auth layer react to expired sessions / forced password changes anywhere in the app.
     if (res.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event('auth:unauthorized'));
     if (res.status === 403 && body.code === 'PASSWORD_CHANGE_REQUIRED') window.dispatchEvent(new Event('auth:password-change'));
+    if (res.status === 403 && body.code === 'TWO_FACTOR_SETUP_REQUIRED') window.dispatchEvent(new Event('auth:2fa-setup'));
     throw new ApiError(res.status, body.error ?? res.statusText, body.details);
   }
   return body as T;
@@ -55,8 +57,9 @@ const qs = (o: Record<string, string | number | undefined>) => {
   return s ? `?${s}` : '';
 };
 
-export interface ManagedUser extends User {
+export interface ManagedUser extends Omit<User, 'twoFactorEnabled' | 'mustSetUpTwoFactor'> {
   isActive: boolean;
+  twoFactorEnabledAt: string | null;
   lastLoginAt: string | null;
   createdAt: string;
 }
@@ -84,7 +87,15 @@ export interface CampaignInput {
 
 export const api = {
   me: () => req<{ user: User }>('/auth/me'),
-  login: (email: string, password: string) => req<{ user: User }>('/auth/login', { method: 'POST', json: { email, password } }),
+  login: (email: string, password: string) => req<{ user: User } | { twoFactorRequired: true }>('/auth/login', { method: 'POST', json: { email, password } }),
+  loginTwoFactor: (factor: { code: string } | { recoveryCode: string }) =>
+    req<{ user: User; recoveryCodesRemaining?: number }>('/auth/login/2fa', { method: 'POST', json: factor }),
+  twoFactorStatus: () => req<TwoFactorStatus>('/auth/2fa'),
+  twoFactorSetup: () => req<{ secret: string; otpauthUrl: string; qrCodeDataUrl: string }>('/auth/2fa/setup', { method: 'POST' }),
+  twoFactorEnable: (code: string) => req<{ recoveryCodes: string[] }>('/auth/2fa/enable', { method: 'POST', json: { code } }),
+  twoFactorDisable: (password: string, factor: { code?: string; recoveryCode?: string }) => req<TwoFactorStatus>('/auth/2fa/disable', { method: 'POST', json: { password, ...factor } }),
+  twoFactorRecoveryCodes: (code: string) => req<{ recoveryCodes: string[] }>('/auth/2fa/recovery-codes', { method: 'POST', json: { code } }),
+  adminReset2fa: (id: number) => req<ManagedUser>(`/users/${id}/reset-2fa`, { method: 'POST' }),
   logout: () => req<void>('/auth/logout', { method: 'POST' }),
   changePassword: (currentPassword: string, newPassword: string) => req<{ user: User }>('/auth/change-password', { method: 'POST', json: { currentPassword, newPassword } }),
   forgotPassword: (email: string) => req<{ message: string }>('/auth/forgot-password', { method: 'POST', json: { email } }),

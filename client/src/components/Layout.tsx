@@ -56,8 +56,8 @@ export function Layout() {
               </p>
             </div>
             <div className="flex gap-1 md:mt-2">
-              <NavLink to="/account/password" title="Change password" className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100">
-                <KeyRound className="h-3.5 w-3.5" /> Password
+              <NavLink to="/account/security" title="Password and two-factor authentication" className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100">
+                <KeyRound className="h-3.5 w-3.5" /> Security
               </NavLink>
               <button
                 onClick={async () => {

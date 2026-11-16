@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyRound, Plus, Trash2, UserCog, Users as UsersIcon } from 'lucide-react';
+import { KeyRound, Plus, Smartphone, Trash2, UserCog, Users as UsersIcon } from 'lucide-react';
 import { api, type ManagedUser } from '../api';
 import { ROLE_HELP, ROLE_LABEL, useAuth } from '../auth';
 import type { UserRole } from '../types';
@@ -108,6 +108,11 @@ export function Users() {
                       <td className="px-3 py-2">
                         {u.isActive ? <Badge className="bg-emerald-100 text-emerald-800">Active</Badge> : <Badge>Deactivated</Badge>}
                         {u.mustChangePassword && u.isActive && <Badge className="ml-1 bg-amber-100 text-amber-800">Temp password</Badge>}
+                        {u.twoFactorEnabledAt && (
+                          <Badge className="ml-1 bg-indigo-100 text-indigo-800">
+                            <Smartphone className="h-3 w-3" /> 2FA
+                          </Badge>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-xs whitespace-nowrap text-slate-500">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Never'}</td>
                       <td className="px-5 py-2">
@@ -115,6 +120,20 @@ export function Users() {
                           <Button variant="ghost" className="px-2 py-1 text-xs" icon={<KeyRound className="h-3.5 w-3.5" />} disabled={busy} onClick={() => setResetFor({ user: u, password: tempPassword() })}>
                             Reset password
                           </Button>
+                          {u.twoFactorEnabledAt && !self && (
+                            <Button
+                              variant="ghost"
+                              className="px-2 py-1 text-xs"
+                              icon={<Smartphone className="h-3.5 w-3.5" />}
+                              disabled={busy}
+                              onClick={() =>
+                                confirm(`Reset two-factor authentication for ${u.email}? Use this when they've lost their phone. They'll be signed out and can sign in with just their password until they set it up again.`) &&
+                                run(() => api.adminReset2fa(u.id), `Two-factor authentication reset for ${u.email}.`)
+                              }
+                            >
+                              Reset 2FA
+                            </Button>
+                          )}
                           {!self && (
                             <Button
                               variant="ghost"

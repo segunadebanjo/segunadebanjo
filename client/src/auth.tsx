@@ -10,7 +10,9 @@ interface AuthState {
   /** ADMIN or MARKETER: may create/change campaigns, products, rules. */
   canWrite: boolean;
   isAdmin: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  /** Returns the user, or 'twoFactor' when an authenticator code is needed next. */
+  login: (email: string, password: string) => Promise<User | 'twoFactor'>;
+  completeTwoFactor: (factor: { code: string } | { recoveryCode: string }) => Promise<{ user: User; recoveryCodesRemaining?: number }>;
   logout: () => Promise<void>;
   setUser: (u: User | null) => void;
 }
@@ -30,18 +32,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Any API call that comes back 401 (expired / revoked session) signs the user out of the UI.
     const onUnauthorized = () => setUser(null);
     const onPasswordChange = () => setUser((u) => (u ? { ...u, mustChangePassword: true } : u));
+    const on2faSetup = () => setUser((u) => (u ? { ...u, mustSetUpTwoFactor: true } : u));
     window.addEventListener('auth:unauthorized', onUnauthorized);
     window.addEventListener('auth:password-change', onPasswordChange);
+    window.addEventListener('auth:2fa-setup', on2faSetup);
     return () => {
       window.removeEventListener('auth:unauthorized', onUnauthorized);
       window.removeEventListener('auth:password-change', onPasswordChange);
+      window.removeEventListener('auth:2fa-setup', on2faSetup);
     };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const r = await api.login(email, password);
+    if ('twoFactorRequired' in r) return 'twoFactor' as const;
     setUser(r.user);
     return r.user;
+  }, []);
+  const completeTwoFactor = useCallback(async (factor: { code: string } | { recoveryCode: string }) => {
+    const r = await api.loginTwoFactor(factor);
+    setUser(r.user);
+    return r;
   }, []);
   const logout = useCallback(async () => {
     await api.logout().catch(() => undefined);
@@ -49,8 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthState>(
-    () => ({ user, loading, login, logout, setUser, canWrite: user?.role === 'ADMIN' || user?.role === 'MARKETER', isAdmin: user?.role === 'ADMIN' }),
-    [user, loading, login, logout],
+    () => ({ user, loading, login, completeTwoFactor, logout, setUser, canWrite: user?.role === 'ADMIN' || user?.role === 'MARKETER', isAdmin: user?.role === 'ADMIN' }),
+    [user, loading, login, completeTwoFactor, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -68,6 +79,7 @@ export function RequireAuth({ children, roles }: { children: ReactNode; roles?: 
   if (loading) return <Spinner label="Checking your session…" />;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   if (user.mustChangePassword && location.pathname !== '/account/password') return <Navigate to="/account/password" replace />;
+  if (!user.mustChangePassword && user.mustSetUpTwoFactor && location.pathname !== '/account/security') return <Navigate to="/account/security" replace />;
   if (roles && !roles.includes(user.role))
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
