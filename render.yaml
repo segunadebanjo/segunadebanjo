@@ -36,6 +36,11 @@ services:
       # Asked for when the Blueprint is created.
       - key: DATABASE_URL
         sync: false
+      # First admin, created at startup only while the database has no users (then ignored).
+      - key: INITIAL_ADMIN_EMAIL
+        sync: false
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false
       - key: APP_URL # e.g. https://insurance-ad-manager.onrender.com
         sync: false
       - key: CORS_ORIGIN # same as APP_URL

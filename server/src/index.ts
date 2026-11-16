@@ -3,6 +3,10 @@ import { config } from './config.js';
 import { prisma } from './db.js';
 import { startScheduler } from './jobs/scheduler.js';
 import { mailTransport } from './services/mail/mailer.js';
+import { ensureFirstAdmin } from './services/auth/firstAdmin.js';
+
+// Hosts without a shell (e.g. Render free plan): create the first admin from env vars on an empty database.
+await ensureFirstAdmin().catch((e) => console.error('[setup] Could not check for the first admin:', e));
 
 const app = createApp();
 const server = app.listen(config.PORT, () => {
