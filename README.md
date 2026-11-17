@@ -166,6 +166,8 @@ Each event goes through these steps:
 3. **Deploy.** The build installs and builds; database migrations are applied when the service starts, so a wrong `DATABASE_URL` shows up in the service's **Logs** rather than failing the build. Startup first checks `DATABASE_URL` and says in plain words if it's missing, quoted, a PostgreSQL URL or otherwise not `mysql://…`; after that, `P1001` means the host can't be reached and `P1000` means a wrong user or password. The health check is `/api/health`. Every merge into `insurance-ad-manager-main` redeploys.
 4. **Create your own admin** (don't seed the demo accounts online, their password is public). The easiest way, with no terminal: in the service's **Environment**, set `INITIAL_ADMIN_EMAIL` (your email) and `INITIAL_ADMIN_PASSWORD` (at least 10 characters, letters and numbers), and optionally `INITIAL_ADMIN_NAME`, then deploy. On startup, if the database has **no users at all**, the app creates that admin and logs `[setup] Created the first admin`; once any user exists these variables are ignored, so you can delete them after signing in. Sign in with that email and password; you'll be asked to choose a new password.
 
+   **Can't sign in ("Incorrect email or password")?** Search the Logs for `[setup]`. To force it, also set `INITIAL_ADMIN_RESET=true` and deploy: on startup that email becomes an active admin with `INITIAL_ADMIN_PASSWORD` (to be changed at sign-in), even if users already exist. Remove `INITIAL_ADMIN_RESET` afterwards, since it applies on every restart while set.
+
    Alternatively, on a paid plan use the service's Shell, or run this from your computer against the online database:
    ```bash
    cd server
