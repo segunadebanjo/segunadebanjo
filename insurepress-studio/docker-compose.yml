@@ -1,0 +1,70 @@
+# Production stack: MySQL 8 + InsurePress Studio + Caddy (HTTPS + password).
+#   cp .env.production.example .env   # then edit
+#   docker compose up -d --build
+#   docker compose exec app node server/db/seed.js   # optional sample book
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${DB_NAME:-insurepress_studio}
+      MYSQL_USER: ${DB_USER:-insurepress}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build: .
+    image: insurepress-studio:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 5050
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-insurepress_studio}
+      DB_USER: ${DB_USER:-insurepress}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CORS_ORIGIN: ${PUBLIC_URL:-*}
+      PUBLIC_BASE_URL: ${PUBLIC_URL:-http://localhost}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5-5}
+      ANTHROPIC_EFFORT: ${ANTHROPIC_EFFORT:-medium}
+    volumes:
+      - exports:/app/exports
+    # Chromium needs more shared memory than Docker's 64 MB default.
+    shm_size: "1gb"
+    expose:
+      - "5050"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:?set BASIC_AUTH_USER in .env}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:?set BASIC_AUTH_HASH in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  dbdata:
+  exports:
+  caddy_data:
+  caddy_config:
