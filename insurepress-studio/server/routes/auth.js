@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Router } from 'express';
 import { query, one } from '../db/pool.js';
 import { ah, HttpError } from '../lib/http.js';
@@ -6,7 +7,8 @@ import {
   USER_FIELDS, checkPassword, hashPassword, validatePassword, normaliseEmail, setSessionCookie, clearSessionCookie,
   userFromRequest, requireAuth, checkRateLimit, recordFailure, clearFailures, dummyHash,
 } from '../lib/auth.js';
-import { createUser, ensureBrandKit } from '../lib/users.js';
+import { createUser, ensureBrandKit, notifyPasswordChanged } from '../lib/users.js';
+import { mailEnabled, sendMail, resetEmail } from '../services/mailService.js';
 
 const r = Router();
 // Compared against when the email is unknown, so response time doesn't reveal which emails exist.
@@ -17,7 +19,7 @@ const needsSetup = async () => !(await one('SELECT id FROM users WHERE password_
 
 r.get('/auth/status', ah(async (req, res) => {
   const user = await userFromRequest(req);
-  res.json({ user: publicUser(user), needsSetup: await needsSetup(), allowRegistration: config.auth.allowRegistration });
+  res.json({ user: publicUser(user), needsSetup: await needsSetup(), allowRegistration: config.auth.allowRegistration, emailEnabled: mailEnabled() });
 }));
 
 // First run: create the admin account. If the database already holds a passwordless user
@@ -86,8 +88,10 @@ r.put('/auth/password', requireAuth, ah(async (req, res) => {
   if (!(await checkPassword(String(currentPassword || ''), row.password_hash))) { recordFailure(key); throw new HttpError(400, 'Current password is incorrect'); }
   validatePassword(newPassword);
   await query('UPDATE users SET password_hash=?, token_version=token_version+1 WHERE id=?', [await hashPassword(newPassword), req.user.id]);
+  await query('DELETE FROM password_resets WHERE user_id=?', [req.user.id]);
   const user = await one(`SELECT ${USER_FIELDS}, token_version FROM users WHERE id=?`, [req.user.id]);
   setSessionCookie(req, res, user); // keep this browser signed in; all others are signed out
+  notifyPasswordChanged(user, 'from your account settings');
   res.json({ ok: true });
 }));
 
@@ -95,6 +99,68 @@ r.post('/auth/logout-all', requireAuth, ah(async (req, res) => {
   await query('UPDATE users SET token_version=token_version+1 WHERE id=?', [req.user.id]);
   clearSessionCookie(res);
   res.json({ ok: true });
+}));
+
+// ---- Forgot password ------------------------------------------------------------------------
+
+const sha256 = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
+const resetLink = (token) => `${config.publicBaseUrl.replace(/\/+$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+const GENERIC = 'If an account exists for that email, we’ve sent a link to reset the password. Check your inbox (and spam folder).';
+
+r.post('/auth/forgot', ah(async (req, res) => {
+  if (!mailEnabled()) throw new HttpError(503, 'Password reset by email isn’t set up. Ask your admin to reset your password.');
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'Enter a valid email address');
+  // Limits apply whether or not the account exists, so they reveal nothing.
+  checkRateLimit(`${req.ip}|forgot`, 10);
+  checkRateLimit(`forgot|${email}`, 3);
+  recordFailure(`${req.ip}|forgot`);
+  recordFailure(`forgot|${email}`);
+  // Answer straight away and do the work afterwards, so response time doesn't reveal whether the email exists.
+  res.json({ ok: true, message: GENERIC });
+  setImmediate(async () => {
+    try {
+      const user = await one('SELECT id, full_name, email FROM users WHERE email=? AND password_hash IS NOT NULL', [email]);
+      if (!user) return;
+      const token = crypto.randomBytes(32).toString('base64url');
+      await query('DELETE FROM password_resets WHERE user_id=? AND used_at IS NULL', [user.id]); // only the newest link works
+      await query('INSERT INTO password_resets (user_id, token_hash, expires_at, requested_ip) VALUES (?,?,DATE_ADD(NOW(), INTERVAL ? MINUTE),?)',
+        [user.id, sha256(token), config.resetLinkMinutes, String(req.ip || '').slice(0, 64)]);
+      await sendMail({ to: user.email, ...resetEmail({ name: user.full_name, link: resetLink(token), minutes: config.resetLinkMinutes }) });
+    } catch (e) {
+      console.error(`Password reset email failed: ${e.message}`);
+    }
+  });
+}));
+
+async function findReset(token) {
+  if (!token || String(token).length > 200) return null;
+  return one(`SELECT pr.id, pr.user_id, u.full_name FROM password_resets pr JOIN users u ON u.id=pr.user_id
+               WHERE pr.token_hash=? AND pr.used_at IS NULL AND pr.expires_at > NOW()`, [sha256(token)]);
+}
+
+r.get('/auth/reset/check', ah(async (req, res) => {
+  checkRateLimit(`${req.ip}|reset-check`, 30);
+  const row = await findReset(req.query.token);
+  if (!row) { recordFailure(`${req.ip}|reset-check`); return res.json({ valid: false }); }
+  res.json({ valid: true, firstName: (row.full_name || '').split(' ')[0] });
+}));
+
+r.post('/auth/reset', ah(async (req, res) => {
+  const key = `${req.ip}|reset`;
+  checkRateLimit(key, 10);
+  const row = await findReset(req.body?.token);
+  if (!row) { recordFailure(key); throw new HttpError(400, 'This reset link is invalid or has expired. Request a new one.'); }
+  validatePassword(req.body?.password);
+  // Mark the link used first so it can't be replayed in a race.
+  const used = await query('UPDATE password_resets SET used_at=NOW() WHERE id=? AND used_at IS NULL', [row.id]);
+  if (!used.affectedRows) throw new HttpError(400, 'This reset link has already been used. Request a new one.');
+  await query('UPDATE users SET password_hash=?, token_version=token_version+1, last_login_at=NOW() WHERE id=?', [await hashPassword(req.body.password), row.user_id]);
+  await query('DELETE FROM password_resets WHERE user_id=? AND id<>?', [row.user_id, row.id]);
+  const user = await one(`SELECT ${USER_FIELDS}, token_version FROM users WHERE id=?`, [row.user_id]);
+  setSessionCookie(req, res, user); // sign in on this browser; every other session is signed out
+  notifyPasswordChanged(user, 'using a reset link');
+  res.json({ user: publicUser(user) });
 }));
 
 export default r;

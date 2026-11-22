@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ShieldCheck, LogIn, UserPlus, KeyRound } from 'lucide-react';
+import { ShieldCheck, LogIn, UserPlus, KeyRound, Mail, CheckCircle2 } from 'lucide-react';
+import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { Field, Spinner } from '../components/ui.jsx';
 
-function Shell({ title, subtitle, children }) {
+export function AuthShell({ title, subtitle, children }) {
   return (
     <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-navy-900 via-navy-800 to-navy-700 p-4">
       <div className="w-full max-w-md">
@@ -30,14 +31,16 @@ export default function SignIn() {
   const [f, setF] = useState({ full_name: '', email: '', password: '', confirm: '', brokerage_name: '', naicom_license_no: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [sent, setSent] = useState('');
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
 
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    if (mode !== 'login' && f.password !== f.confirm) return setError('The two passwords don’t match');
+    if ((mode === 'setup' || mode === 'register') && f.password !== f.confirm) return setError('The two passwords don’t match');
     setBusy(true);
     try {
+      if (mode === 'forgot') { const r = await api.post('/auth/forgot', { email: f.email }); setSent(r.message); return; }
       if (mode === 'login') await auth.signIn(f.email, f.password);
       else if (mode === 'setup') await auth.setup(f);
       else await auth.register(f);
@@ -61,20 +64,28 @@ export default function SignIn() {
     setup: { title: 'Create your admin account', subtitle: 'This is a one-time setup. You’ll be the admin and can add other authors later. Any existing books are kept and moved into your account.', button: 'Create admin account', icon: KeyRound },
     login: { title: auth.expired ? 'Your session has ended' : 'Sign in', subtitle: auth.expired ? 'Sign in again to keep working. Your unsaved changes are kept and will save once you’re back.' : 'Welcome back.', button: 'Sign in', icon: LogIn },
     register: { title: 'Create an account', subtitle: 'Start building your insurance book.', button: 'Create account', icon: UserPlus },
+    forgot: { title: 'Reset your password', subtitle: 'Enter your account email and we’ll send you a link to choose a new password.', button: 'Send reset link', icon: Mail },
   }[mode];
 
   return (
-    <Shell title={content.title} subtitle={content.subtitle}>
+    <AuthShell title={content.title} subtitle={content.subtitle}>
       <form onSubmit={submit} className="space-y-3">
-        {mode === 'login' ? (
+        {mode === 'forgot' ? (
+          sent ? <div className="flex gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"><CheckCircle2 size={16} className="mt-0.5 shrink-0" />{sent}</div>
+            : <Field label="Email"><input className="input" type="email" value={f.email} onChange={set('email')} autoComplete="email" autoFocus required /></Field>
+        ) : mode === 'login' ? (
           <>
             <Field label="Email"><input className="input" type="email" value={f.email} onChange={set('email')} autoComplete="email" autoFocus required /></Field>
             <Field label="Password"><input className="input" type="password" value={f.password} onChange={set('password')} autoComplete="current-password" required /></Field>
+            {auth.emailEnabled && <div className="-mt-1 text-right"><button type="button" className="text-xs font-semibold text-gold-600 hover:underline" onClick={() => { setMode('forgot'); setError(''); setSent(''); }}>Forgot password?</button></div>}
           </>
         ) : accountFields}
         {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</div>}
-        <button className="btn-primary w-full py-2.5" disabled={busy}>{busy ? <Spinner /> : <content.icon size={16} />}{content.button}</button>
+        {!(mode === 'forgot' && sent) && <button className="btn-primary w-full py-2.5" disabled={busy}>{busy ? <Spinner /> : <content.icon size={16} />}{content.button}</button>}
       </form>
+      {mode === 'forgot' && (
+        <p className="mt-4 text-center text-sm text-slate-500"><button className="font-semibold text-gold-600 hover:underline" onClick={() => { setMode('login'); setError(''); setSent(''); }}>Back to sign in</button></p>
+      )}
       {mode === 'login' && auth.allowRegistration && (
         <p className="mt-4 text-center text-sm text-slate-500">New here? <button className="font-semibold text-gold-600 hover:underline" onClick={() => { setMode('register'); setError(''); }}>Create an account</button></p>
       )}
@@ -82,8 +93,8 @@ export default function SignIn() {
         <p className="mt-4 text-center text-sm text-slate-500">Already have an account? <button className="font-semibold text-gold-600 hover:underline" onClick={() => { setMode('login'); setError(''); }}>Sign in</button></p>
       )}
       {mode === 'login' && !auth.allowRegistration && (
-        <p className="mt-4 text-center text-xs text-slate-400">Forgot your password or need an account? Ask your workspace admin.</p>
+        <p className="mt-4 text-center text-xs text-slate-400">{auth.emailEnabled ? 'Need an account? Ask your workspace admin.' : 'Forgot your password or need an account? Ask your workspace admin.'}</p>
       )}
-    </Shell>
+    </AuthShell>
   );
 }

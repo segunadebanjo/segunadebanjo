@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './lib/auth.jsx';
 import SignIn from './pages/SignIn.jsx';
 import Account from './pages/Account.jsx';
 import Users from './pages/Users.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import { api } from './lib/api.js';
 import Dashboard from './pages/Dashboard.jsx';
 import Studio from './pages/Studio.jsx';
@@ -86,6 +87,8 @@ function Workspace() {
 function Gate() {
   const auth = useAuth();
   if (auth.loading) return <div className="flex h-full items-center justify-center"><Spinner size={24} /></div>;
+  // The reset page works whether or not someone is signed in on this browser.
+  if (window.location.pathname === '/reset-password') return <ResetPassword />;
   if (!auth.user) return <SignIn />;
   if (!auth.expired) return <Workspace />;
   // Session expired mid-work: keep the workspace mounted (so the open chapter isn't lost) and sign in on top.

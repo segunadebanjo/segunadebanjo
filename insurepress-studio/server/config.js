@@ -29,6 +29,17 @@ export const config = {
     allowRegistration: String(env.ALLOW_REGISTRATION || 'false').toLowerCase() === 'true',
     sessionDays: Number(env.SESSION_DAYS || 7),
   },
+  mail: {
+    // MAIL_TRANSPORT=smtp (default when SMTP_HOST is set) or log (prints emails to the server console; development only)
+    transport: env.MAIL_TRANSPORT || (env.SMTP_HOST ? 'smtp' : ''),
+    host: env.SMTP_HOST || '',
+    port: Number(env.SMTP_PORT || 587),
+    secure: String(env.SMTP_SECURE || '').toLowerCase() === 'true' || Number(env.SMTP_PORT) === 465,
+    user: env.SMTP_USER || '',
+    pass: env.SMTP_PASS || '',
+    from: env.MAIL_FROM || '',
+  },
+  resetLinkMinutes: Number(env.RESET_LINK_MINUTES || 60),
   isProduction: env.NODE_ENV === 'production',
   chromePath: env.PUPPETEER_EXECUTABLE_PATH || '',
   exportDir: path.resolve(here, env.EXPORT_DIR || '../exports'),

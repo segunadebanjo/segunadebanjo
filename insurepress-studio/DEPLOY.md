@@ -54,6 +54,7 @@ In `.env`, set:
 - `DOMAIN` and `PUBLIC_URL`: your domain, e.g. `studio.yourbrokerage.ng` and `https://studio.yourbrokerage.ng`
 - `JWT_SECRET`: the random value printed above. It signs login sessions; changing it signs everyone out.
 - `ALLOW_REGISTRATION`: leave `false` so only admins can add users, or `true` to let anyone sign up from the login page.
+- `SMTP_*` and `MAIL_FROM` (recommended): lets users reset forgotten passwords by email. See [Email setup](#email-setup). Without it, "Forgot password?" is hidden and admins reset passwords instead.
 - `MYSQL_ROOT_PASSWORD` and `DB_PASSWORD`: two different long random passwords (`openssl rand -hex 24` makes one)
 - `ANTHROPIC_API_KEY`: optional
 
@@ -75,13 +76,29 @@ docker compose exec app node server/db/seed.js
 ## Users and passwords
 
 - **Add an author:** avatar menu → **Manage users** → **Add user**. Give them the temporary password privately; they change it under **Account & password**.
-- **Forgotten password:** an admin resets it from **Manage users** (key icon). This signs the user out on every device.
+- **Forgotten password:** with email set up, users click **Forgot password?** on the sign-in page and get a link that works once and expires after an hour. An admin can always reset it from **Manage users** (key icon). Either way the user is signed out on every device and gets a "your password was changed" email.
 - **Lost device:** the user picks **Sign out on all devices** under **Account & password**, or an admin resets their password.
 - **Locked out of the only admin account:** reset the password from the server:
   ```bash
   docker compose exec app node server/db/reset-password.js admin@yourbrokerage.ng 'New-admin-pass-2026'
   ```
 - After 8 wrong passwords for the same email from the same address, sign-in pauses for 15 minutes.
+
+## Email setup
+
+Password reset links and "your password was changed" notices are sent over SMTP. Put these in `.env`, then run `docker compose up -d`:
+
+| Provider | `SMTP_HOST` | `SMTP_PORT` | `SMTP_USER` / `SMTP_PASS` |
+|---|---|---|---|
+| Google Workspace / Gmail | `smtp.gmail.com` | `587` | your address / an [app password](https://myaccount.google.com/apppasswords) (needs 2-step verification) |
+| Zoho Mail | `smtp.zoho.com` (or `smtppro.zoho.com` for paid plans) | `587` | your address / your password or app password |
+| Brevo | `smtp-relay.brevo.com` | `587` | your Brevo login / an SMTP key |
+| Mailgun | `smtp.mailgun.org` | `587` | the domain's SMTP login / password |
+
+- Set `MAIL_FROM` to an address your provider allows you to send from, e.g. `InsurePress Studio <no-reply@yourbrokerage.ng>`.
+- `PUBLIC_URL` must be your real `https://` address: it's the start of every emailed link.
+- Check it worked with `docker compose logs app | grep Email`. You should see `Email: SMTP ready`. If the check failed, the log says why (usually a wrong password or port).
+- For best delivery, add your provider's SPF/DKIM records to your domain's DNS. Your provider's dashboard shows the exact values.
 
 ## Day-to-day
 

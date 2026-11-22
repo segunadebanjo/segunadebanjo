@@ -74,10 +74,10 @@ export function requireAdmin(req, res, next) {
 const attempts = new Map();
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
-export function checkRateLimit(key) {
+export function checkRateLimit(key, max = MAX_ATTEMPTS) {
   const now = Date.now();
   const a = attempts.get(key);
-  if (a && now - a.first < WINDOW_MS && a.count >= MAX_ATTEMPTS) {
+  if (a && now - a.first < WINDOW_MS && a.count >= max) {
     const mins = Math.ceil((WINDOW_MS - (now - a.first)) / 60000);
     throw new HttpError(429, `Too many attempts. Try again in ${mins} minute${mins === 1 ? '' : 's'}.`);
   }

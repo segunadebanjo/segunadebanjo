@@ -8,6 +8,7 @@ import { pool } from './db/pool.js';
 import { requireAuth } from './lib/auth.js';
 import { getAsset } from './services/assetStore.js';
 import { aiStatus } from './services/aiService.js';
+import { verifyMail } from './services/mailService.js';
 import { closeBrowser } from './services/browser.js';
 import booksRoutes from './routes/books.js';
 import brandRoutes from './routes/brand.js';
@@ -73,6 +74,7 @@ for (let attempt = 1; ; attempt++) {
     await new Promise((r) => setTimeout(r, 3000));
   }
 }
+verifyMail();
 const server = app.listen(config.port, () => {
   const ai = aiStatus();
   console.log(`InsurePress Studio API on http://localhost:${config.port}  (AI: ${ai.mode}${ai.mode === 'live' ? ` · ${ai.model}` : ''})`);
