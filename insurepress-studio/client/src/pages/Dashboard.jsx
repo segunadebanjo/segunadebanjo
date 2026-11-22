@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Sparkles, PenLine, Image, BadgeDollarSign, Trash2, BookOpen, FileText } from 'lucide-react';
 import { api } from '../lib/api.js';
+import { useAuth } from '../lib/auth.jsx';
 import { Modal, Field, Spinner, StatusBadge, Progress, Empty, useToast } from '../components/ui.jsx';
 import CoverThumb from '../components/CoverThumb.jsx';
 import RevenuePlanner from '../components/RevenuePlanner.jsx';
@@ -44,6 +45,7 @@ function NewBookModal({ open, onClose, brands }) {
 
 export default function Dashboard() {
   const toast = useToast();
+  const { user } = useAuth();
   const [books, setBooks] = useState(null);
   const [brands, setBrands] = useState([]);
   const [showNew, setShowNew] = useState(false);
@@ -85,7 +87,7 @@ export default function Dashboard() {
         </div>
 
         {!books ? <div className="flex justify-center py-16"><Spinner size={24} /></div> : books.length === 0 ? (
-          <div className="card"><Empty icon={BookOpen} title="No books yet">Use the AI Blueprint Wizard to turn an audience’s pain points into a full outline, or start from a blank book. Run <code>npm run seed</code> for the “Sleep Soundly” sample.</Empty></div>
+          <div className="card"><Empty icon={BookOpen} title="No books yet">Use the AI Blueprint Wizard to turn an audience’s pain points into a full outline, or start from a blank book.{user?.role === 'admin' && <> Run <code>npm run seed</code> on the server to load the “Sleep Soundly” sample.</>}</Empty></div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {books.map((b) => {

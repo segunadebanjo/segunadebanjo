@@ -4,22 +4,6 @@ import { HttpError, notFound } from './http.js';
 import { defaultCoverConfig } from '../../shared/cover.js';
 import { DEFAULT_DISCLAIMER } from '../../shared/constants.js';
 
-/**
- * Single-workspace mode: requests act as the first user (created on demand).
- * Swap this for real authentication (JWT/session) before multi-tenant deployment.
- */
-export async function currentUser(req, _res, next) {
-  try {
-    let user = await one('SELECT id, full_name, email, brokerage_name, naicom_license_no, created_at FROM users ORDER BY id LIMIT 1');
-    if (!user) {
-      const r = await query('INSERT INTO users (full_name, email, brokerage_name) VALUES (?,?,?)', ['Studio Author', 'author@insurepress.local', 'My Brokerage']);
-      user = await one('SELECT id, full_name, email, brokerage_name, naicom_license_no, created_at FROM users WHERE id=?', [r.insertId]);
-    }
-    req.user = user;
-    next();
-  } catch (e) { next(e); }
-}
-
 export async function getBook(bookId, userId) {
   const book = parseJsonCols(await one('SELECT * FROM books WHERE id=? AND user_id=?', [bookId, userId]), ['cover_config_json']);
   if (!book) throw notFound('Book');

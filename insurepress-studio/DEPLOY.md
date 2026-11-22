@@ -4,11 +4,11 @@ This runs three containers with Docker Compose on a server you own:
 
 | Container | What it does | Reachable from the internet? |
 |---|---|---|
-| `caddy` | HTTPS (free Let's Encrypt certificate) and a username/password prompt | Yes, ports 80 and 443 |
+| `caddy` | HTTPS (free Let's Encrypt certificate) | Yes, ports 80 and 443 |
 | `app` | InsurePress Studio (API, web app, headless Chromium for PDF export) | No, only through Caddy |
 | `db` | MySQL 8.0 | No |
 
-> **Why the password prompt?** The app has no user accounts yet. Without the prompt, anyone who found your URL could read your books and use your AI credits. Keep it on until real logins are added.
+Everyone signs in with their own email and password. Each author's books, brand kits, offers and exported files are private to them. The first person to open the site creates the **admin** account. Admins add other authors from **Manage users**.
 
 ## 1. What you need
 
@@ -45,15 +45,15 @@ If the repository is private, GitHub will ask you to sign in. Use a personal acc
 
 ```bash
 cp .env.production.example .env
-docker run --rm caddy:2 caddy hash-password --plaintext 'choose-a-strong-password'
+openssl rand -hex 32        # copy this for JWT_SECRET
 nano .env
 ```
 
 In `.env`, set:
 
 - `DOMAIN` and `PUBLIC_URL`: your domain, e.g. `studio.yourbrokerage.ng` and `https://studio.yourbrokerage.ng`
-- `BASIC_AUTH_USER`: the login name you want
-- `BASIC_AUTH_HASH`: paste the hash printed above, **inside single quotes** (it contains `$` signs)
+- `JWT_SECRET`: the random value printed above. It signs login sessions; changing it signs everyone out.
+- `ALLOW_REGISTRATION`: leave `false` so only admins can add users, or `true` to let anyone sign up from the login page.
 - `MYSQL_ROOT_PASSWORD` and `DB_PASSWORD`: two different long random passwords (`openssl rand -hex 24` makes one)
 - `ANTHROPIC_API_KEY`: optional
 
@@ -61,11 +61,27 @@ In `.env`, set:
 
 ```bash
 docker compose up -d --build                    # first build takes ~5 minutes
-docker compose exec app node server/db/seed.js  # optional: load the "Sleep Soundly" sample book
 docker compose ps                               # app and db should say "healthy"
 ```
 
-Open `https://studio.yourbrokerage.ng` and sign in with your username and password.
+**Straight away**, open `https://studio.yourbrokerage.ng` and create the admin account. Until you do, the site shows the setup form to anyone who visits.
+
+Optional: load the "Sleep Soundly" sample book into the admin's library:
+
+```bash
+docker compose exec app node server/db/seed.js
+```
+
+## Users and passwords
+
+- **Add an author:** avatar menu → **Manage users** → **Add user**. Give them the temporary password privately; they change it under **Account & password**.
+- **Forgotten password:** an admin resets it from **Manage users** (key icon). This signs the user out on every device.
+- **Lost device:** the user picks **Sign out on all devices** under **Account & password**, or an admin resets their password.
+- **Locked out of the only admin account:** reset the password from the server:
+  ```bash
+  docker compose exec app node server/db/reset-password.js admin@yourbrokerage.ng 'New-admin-pass-2026'
+  ```
+- After 8 wrong passwords for the same email from the same address, sign-in pauses for 15 minutes.
 
 ## Day-to-day
 
@@ -77,7 +93,6 @@ Open `https://studio.yourbrokerage.ng` and sign in with your username and passwo
 | Stop everything | `docker compose down` (your data is kept) |
 | Back up the database | `docker compose exec db sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" insurepress_studio' > backup-$(date +%F).sql` |
 | Restore a backup | `docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" insurepress_studio' < backup-YYYY-MM-DD.sql` |
-| Change the password | Generate a new hash (step 5), update `.env`, then `docker compose up -d caddy` |
 
 Books live in the `dbdata` volume and exported files in the `exports` volume. Both survive restarts and rebuilds. **Do not run `docker compose down -v`**: the `-v` deletes them.
 

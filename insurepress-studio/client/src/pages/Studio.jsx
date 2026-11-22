@@ -97,10 +97,18 @@ export default function Studio() {
       patchChapter(p.id, { content_json: ch.content_json, word_count: ch.word_count });
       setSave(pending.current ? 'unsaved' : 'saved');
     } catch (e) {
+      // Keep the unsaved text so it is retried (e.g. after signing back in).
+      if (!pending.current) pending.current = p;
       setSave('error');
       toast(`Autosave failed: ${e.message}`, 'error');
     }
   }, []);
+
+  useEffect(() => {
+    const retry = () => { if (pending.current) flushSave(); };
+    window.addEventListener('ip:signed-in', retry);
+    return () => window.removeEventListener('ip:signed-in', retry);
+  }, [flushSave]);
 
   useEffect(() => {
     const before = (e) => { if (pending.current) { flushSave(); e.preventDefault(); } };

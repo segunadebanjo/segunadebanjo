@@ -9,7 +9,6 @@ import { buildBookPdf, buildLeadMagnetPdf, renderCoverPng } from '../services/pd
 import { buildBookEpub } from '../services/epubService.js';
 import { buildBookDocx } from '../services/docxService.js';
 import { qrForCta } from '../services/qrService.js';
-import { getAsset } from '../services/assetStore.js';
 import { THEMES } from '../../shared/themes.js';
 import { TRIM_SIZES } from '../../shared/constants.js';
 
@@ -75,11 +74,15 @@ r.get('/books/:id/cover.png', ah(async (req, res) => {
   res.send(png);
 }));
 
-r.get('/assets/tmp/:id', (req, res) => {
-  const a = getAsset(String(req.params.id).replace(/\.\w+$/, ''));
-  if (!a) return res.status(404).end();
-  res.setHeader('Content-Type', a.mime);
-  res.send(a.buffer);
-});
+// Download a generated file. Only the owner of the book can fetch it.
+export async function downloadExport(req, res, next) {
+  try {
+    const name = String(req.params.file || '');
+    if (!/^[a-z0-9-]+\.(pdf|epub|docx)$/.test(name)) return res.status(404).json({ error: 'Not found' });
+    const job = await query('SELECT e.id FROM export_jobs e JOIN books b ON b.id=e.book_id WHERE e.file_path=? AND b.user_id=?', [name, req.user.id]);
+    if (!job.length) return res.status(404).json({ error: 'Not found' });
+    res.download(path.join(config.exportDir, name), name, (err) => { if (err && !res.headersSent) res.status(404).json({ error: 'File no longer exists' }); });
+  } catch (e) { next(e); }
+}
 
 export default r;

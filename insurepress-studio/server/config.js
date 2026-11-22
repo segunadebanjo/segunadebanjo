@@ -24,6 +24,12 @@ export const config = {
     model: env.ANTHROPIC_MODEL || 'claude-opus-5-5',
     effort: env.ANTHROPIC_EFFORT || 'medium',
   },
+  auth: {
+    jwtSecret: env.JWT_SECRET || '',
+    allowRegistration: String(env.ALLOW_REGISTRATION || 'false').toLowerCase() === 'true',
+    sessionDays: Number(env.SESSION_DAYS || 7),
+  },
+  isProduction: env.NODE_ENV === 'production',
   chromePath: env.PUPPETEER_EXECUTABLE_PATH || '',
   exportDir: path.resolve(here, env.EXPORT_DIR || '../exports'),
   clientDist: path.join(ROOT_DIR, 'client', 'dist'),

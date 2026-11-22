@@ -1,4 +1,4 @@
-// npm run seed — loads the Sparklight Advisory Press brand kit, sample CTAs and the
+// npm run seed — loads the sample data into the FIRST account (the admin once setup is done). It loads the Sparklight Advisory Press brand kit, sample CTAs and the
 // "Sleep Soundly" starter book. Safe to re-run: it replaces the demo records it created before.
 import { migrate } from './migrate.js';
 import { pool, query, one } from './pool.js';
@@ -20,7 +20,8 @@ async function run() {
   // 1. Workspace user (the app acts as the first user).
   let user = await one('SELECT * FROM users ORDER BY id LIMIT 1');
   const profile = ['Funmilayo Adeyemi', 'Sparklight Insurance Brokers Ltd', 'NAICOM/BRK/0000 (sample)'];
-  if (user) await query('UPDATE users SET full_name=?, brokerage_name=?, naicom_license_no=? WHERE id=?', [...profile, user.id]);
+  // Only fill in the sample profile for a placeholder account; never overwrite a real (signed-up) user.
+  if (user && !user.password_hash) await query('UPDATE users SET full_name=?, brokerage_name=?, naicom_license_no=? WHERE id=?', [...profile, user.id]);
   else await query('INSERT INTO users (full_name, email, brokerage_name, naicom_license_no) VALUES (?,?,?,?)', [profile[0], 'author@sparklight.example', profile[1], profile[2]]);
   user = await one('SELECT * FROM users ORDER BY id LIMIT 1');
 

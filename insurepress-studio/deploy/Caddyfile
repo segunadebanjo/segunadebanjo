@@ -1,11 +1,12 @@
 # Reverse proxy in front of InsurePress Studio.
 # - DOMAIN set to a real hostname (e.g. studio.example.ng) -> automatic HTTPS via Let's Encrypt.
-# - DOMAIN=:80 -> plain HTTP (testing only).
-# The app has no built-in login yet, so every request must pass HTTP basic auth.
+# - DOMAIN=:80 -> plain HTTP (testing only: browsers won't keep the sign-in cookie secure).
+# Sign-in is handled by the app itself (email + password accounts).
 {$DOMAIN} {
 	encode gzip
-	basic_auth {
-		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
 	}
 	reverse_proxy app:5050 {
 		# PDF exports can take ~40 s

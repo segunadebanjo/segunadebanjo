@@ -74,9 +74,11 @@ npm run seed                  # Sparklight brand kit, 3 CTAs and the "Sleep Soun
 npm run dev                   # API on :5050, app on http://localhost:5173
 ```
 
+Open the app and **create the admin account** on the first-run screen. If you ran the seed first, the sample book moves into that account.
+
 Production: `npm run build && npm start`. Express serves the built client and the API from one port (`PORT`, default 5050).
 
-**Deploying to a server:** see [DEPLOY.md](DEPLOY.md). It covers Docker Compose with MySQL 8, automatic HTTPS and a password prompt in front of the app.
+**Deploying to a server:** see [DEPLOY.md](DEPLOY.md). It covers Docker Compose with MySQL 8 and automatic HTTPS.
 
 ### Environment variables
 
@@ -89,6 +91,9 @@ Production: `npm run build && npm start`. Express serves the built client and th
 | `ANTHROPIC_EFFORT` | `medium` | `low`–`max`: trades depth for speed and cost |
 | `PUPPETEER_EXECUTABLE_PATH` | *(bundled)* | Use a system Chrome/Chromium |
 | `EXPORT_DIR` | `../exports` | Where generated files are written |
+| `JWT_SECRET` | *(random per start)* | Signs login sessions. **Set it in production** (`openssl rand -hex 32`), or everyone is signed out on each restart |
+| `ALLOW_REGISTRATION` | `false` | `true` lets anyone create an author account from the login page |
+| `SESSION_DAYS` | `7` | How long a sign-in lasts |
 
 ### AI behaviour
 - Calls use `@anthropic-ai/sdk` with streaming and server-side refusal fallback. Answers come back as structured JSON blocks that `shared/render.js` turns into editor content, so the AI can write the visual blocks too.
@@ -96,19 +101,27 @@ Production: `npm run build && npm start`. Express serves the built client and th
 
 ---
 
+## Accounts & security
+- **Accounts:** email and password, hashed with bcrypt (cost 12). The first visitor creates the **admin**; admins add, reset, promote and delete users under **Manage users**. Optional self sign-up via `ALLOW_REGISTRATION=true`.
+- **Sessions:** a signed JWT in an `httpOnly`, `SameSite=Lax` cookie, `Secure` over HTTPS. Changing a password, an admin reset, or **Sign out on all devices** invalidates existing sessions.
+- **Private data:** every book, chapter, version, brand kit, offer and export download is checked against the signed-in user. Other users get `404`.
+- **Brute-force protection:** 8 failed sign-ins per email and address lock that pair for 15 minutes.
+- **Expiry mid-edit:** if a session expires while someone is writing, a sign-in overlay appears over the editor and unsaved text is saved after they sign back in.
+- Upgrading from the earlier single-user version keeps all data. The new `users` columns are added automatically, and the first-run setup claims the existing account and its books.
+
 ## First run: what to try
-1. **Library:** open *Sleep Soundly* (₦7,500 digital / ₦15,000 print) and scroll down to the revenue & commission planner.
-2. **Studio:** type `/` in a chapter to insert a block. Double-click a block to edit it. Open **AI Co-Pilot → NAICOM & NIIRA 2025 Compliance Check**. Switch the preview between *6×9 Print Spread*, *E-Reader* and the five themes.
-3. **Versions:** save a snapshot, edit, then restore. The current text is backed up automatically before a restore.
-4. **Cover Studio:** switch templates, pick the Selar offer for the back-cover QR, open *3D Mockup* and download the PNG.
-5. **Publish & Export:** PDF (about 30–40 s for the sample: 45 pages at 6×9), EPUB, DOCX, Lead-magnet PDF.
-6. **AI Blueprint Wizard:** choose *Commercial Fleet & Logistics Operators* → Discover → Generate → **Populate manuscript**.
+1. **Sign in:** create the admin account on the first-run screen.
+2. **Library:** open *Sleep Soundly* (₦7,500 digital / ₦15,000 print) and scroll down to the revenue & commission planner.
+3. **Studio:** type `/` in a chapter to insert a block. Double-click a block to edit it. Open **AI Co-Pilot → NAICOM & NIIRA 2025 Compliance Check**. Switch the preview between *6×9 Print Spread*, *E-Reader* and the five themes.
+4. **Versions:** save a snapshot, edit, then restore. The current text is backed up automatically before a restore.
+5. **Cover Studio:** switch templates, pick the Selar offer for the back-cover QR, open *3D Mockup* and download the PNG.
+6. **Publish & Export:** PDF (about 30–40 s for the sample: 45 pages at 6×9), EPUB, DOCX, Lead-magnet PDF.
+7. **AI Blueprint Wizard:** choose *Commercial Fleet & Logistics Operators* → Discover → Generate → **Populate manuscript**.
 
 ## API (summary)
-`GET /api/health` · `GET|POST /api/books` · `GET /api/books/:id/full` · `PUT|DELETE /api/books/:id` · `POST /api/books/:id/chapters` · `POST /api/books/:id/chapters/reorder` · `POST /api/books/:id/matter {subtype}` · `GET|PUT|DELETE /api/chapters/:id` · `GET|POST /api/chapters/:id/versions` · `GET /api/versions/:id` · `POST /api/versions/:id/restore` · `GET|POST /api/brand-kits` · `PUT|DELETE /api/brand-kits/:id` · `GET|PUT /api/me` · `GET|POST /api/books/:id/ctas` · `PUT|DELETE /api/ctas/:id` · `POST /api/qr` · `GET /api/ai/status` · `POST /api/ai/pain-points` · `POST /api/ai/outline` · `POST /api/ai/copilot` · `POST /api/ai/sales-copy` · `POST /api/blueprints/populate` · `POST /api/books/:id/exports {format: pdf|epub|docx|lead_magnet_pdf, theme?, trim?, chapterIds?, ctaId?}` · `GET /api/books/:id/exports` · `GET /api/books/:id/cover.png?part=front|back`
+Public: `GET /api/health` · `GET /api/auth/status` · `POST /api/auth/setup|login|register|logout`. Everything else needs a session: `PUT /api/auth/password` · `POST /api/auth/logout-all` · `GET|POST /api/users` · `PUT|DELETE /api/users/:id` (admin) · `GET|POST /api/books` · `GET /api/books/:id/full` · `PUT|DELETE /api/books/:id` · `POST /api/books/:id/chapters` · `POST /api/books/:id/chapters/reorder` · `POST /api/books/:id/matter {subtype}` · `GET|PUT|DELETE /api/chapters/:id` · `GET|POST /api/chapters/:id/versions` · `GET /api/versions/:id` · `POST /api/versions/:id/restore` · `GET|POST /api/brand-kits` · `PUT|DELETE /api/brand-kits/:id` · `GET|PUT /api/me` · `GET|POST /api/books/:id/ctas` · `PUT|DELETE /api/ctas/:id` · `POST /api/qr` · `GET /api/ai/status` · `POST /api/ai/pain-points` · `POST /api/ai/outline` · `POST /api/ai/copilot` · `POST /api/ai/sales-copy` · `POST /api/blueprints/populate` · `POST /api/books/:id/exports {format: pdf|epub|docx|lead_magnet_pdf, theme?, trim?, chapterIds?, ctaId?}` · `GET /api/books/:id/exports` · `GET /api/books/:id/cover.png?part=front|back`
 
 ## Known limitations
-- **Single-workspace mode:** every request acts as the first user in `users`. Add authentication (JWT or sessions) before a multi-user deployment. Ownership checks are already scoped by `user_id`.
 - Export runs synchronously within the request. For heavy use, move `export_jobs` onto a queue.
 - Web fonts load from Google Fonts. Offline, PDFs fall back to system serif and sans fonts.
 - The live print preview paginates in the browser to approximate the final layout. The exported PDF is authoritative.
