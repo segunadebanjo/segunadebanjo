@@ -12,6 +12,7 @@ try {
   const user = await one('SELECT id, role FROM users WHERE email=?', [email]);
   if (!user) throw new Error(`No account with email ${email}`);
   await query('UPDATE users SET password_hash=?, token_version=token_version+1 WHERE id=?', [await hashPassword(password), user.id]);
+  await query('DELETE FROM password_resets WHERE user_id=?', [user.id]);
   console.log(`✔ Password reset for ${email} (${user.role}).`);
 } catch (e) {
   console.error(e.message);

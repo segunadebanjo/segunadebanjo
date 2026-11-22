@@ -21,3 +21,13 @@ export async function createUser({ full_name, email, password, brokerage_name, n
   await ensureBrandKit(ins.insertId, brokerage_name ? `${brokerage_name} Press` : null);
   return one(`SELECT ${USER_FIELDS}, token_version FROM users WHERE id=?`, [ins.insertId]);
 }
+
+const lagosTime = () => `${new Date().toLocaleString('en-GB', { timeZone: 'Africa/Lagos', dateStyle: 'medium', timeStyle: 'short' })} (WAT)`;
+
+/** Fire-and-forget "your password was changed" notice; never blocks or fails the request. */
+export function notifyPasswordChanged(user, how) {
+  import('../services/mailService.js').then(({ mailEnabled, sendMail, passwordChangedEmail }) => {
+    if (!mailEnabled() || !user?.email) return;
+    return sendMail({ to: user.email, ...passwordChangedEmail({ name: user.full_name, when: lagosTime(), how }) });
+  }).catch((e) => console.error(`Password-changed email to user ${user?.id} failed: ${e.message}`));
+}

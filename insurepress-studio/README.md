@@ -94,6 +94,10 @@ Production: `npm run build && npm start`. Express serves the built client and th
 | `JWT_SECRET` | *(random per start)* | Signs login sessions. **Set it in production** (`openssl rand -hex 32`), or everyone is signed out on each restart |
 | `ALLOW_REGISTRATION` | `false` | `true` lets anyone create an author account from the login page |
 | `SESSION_DAYS` | `7` | How long a sign-in lasts |
+| `PUBLIC_BASE_URL` | `http://localhost:5050` | Start of links in emails (the address users open) |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` | *(empty)* | Email for password reset links and security notices. Empty = email off |
+| `RESET_LINK_MINUTES` | `60` | How long a reset link stays valid |
+| `MAIL_TRANSPORT` | *(auto)* | Set to `log` in development to print emails to the console instead of sending them |
 
 ### AI behaviour
 - Calls use `@anthropic-ai/sdk` with streaming and server-side refusal fallback. Answers come back as structured JSON blocks that `shared/render.js` turns into editor content, so the AI can write the visual blocks too.
@@ -106,6 +110,7 @@ Production: `npm run build && npm start`. Express serves the built client and th
 - **Sessions:** a signed JWT in an `httpOnly`, `SameSite=Lax` cookie, `Secure` over HTTPS. Changing a password, an admin reset, or **Sign out on all devices** invalidates existing sessions.
 - **Private data:** every book, chapter, version, brand kit, offer and export download is checked against the signed-in user. Other users get `404`.
 - **Brute-force protection:** 8 failed sign-ins per email and address lock that pair for 15 minutes.
+- **Forgot password (when SMTP is configured):** the response is the same whether or not an email has an account. Links are 256-bit random tokens; only their SHA-256 hash is stored. They work once, expire after 60 minutes, and requesting a new link cancels the old one. Using a link signs the user out everywhere else and sends a "password changed" email. Requests are limited to 3 per email and 10 per IP address per 15 minutes.
 - **Expiry mid-edit:** if a session expires while someone is writing, a sign-in overlay appears over the editor and unsaved text is saved after they sign back in.
 - Upgrading from the earlier single-user version keeps all data. The new `users` columns are added automatically, and the first-run setup claims the existing account and its books.
 
@@ -119,7 +124,7 @@ Production: `npm run build && npm start`. Express serves the built client and th
 7. **AI Blueprint Wizard:** choose *Commercial Fleet & Logistics Operators* → Discover → Generate → **Populate manuscript**.
 
 ## API (summary)
-Public: `GET /api/health` · `GET /api/auth/status` · `POST /api/auth/setup|login|register|logout`. Everything else needs a session: `PUT /api/auth/password` · `POST /api/auth/logout-all` · `GET|POST /api/users` · `PUT|DELETE /api/users/:id` (admin) · `GET|POST /api/books` · `GET /api/books/:id/full` · `PUT|DELETE /api/books/:id` · `POST /api/books/:id/chapters` · `POST /api/books/:id/chapters/reorder` · `POST /api/books/:id/matter {subtype}` · `GET|PUT|DELETE /api/chapters/:id` · `GET|POST /api/chapters/:id/versions` · `GET /api/versions/:id` · `POST /api/versions/:id/restore` · `GET|POST /api/brand-kits` · `PUT|DELETE /api/brand-kits/:id` · `GET|PUT /api/me` · `GET|POST /api/books/:id/ctas` · `PUT|DELETE /api/ctas/:id` · `POST /api/qr` · `GET /api/ai/status` · `POST /api/ai/pain-points` · `POST /api/ai/outline` · `POST /api/ai/copilot` · `POST /api/ai/sales-copy` · `POST /api/blueprints/populate` · `POST /api/books/:id/exports {format: pdf|epub|docx|lead_magnet_pdf, theme?, trim?, chapterIds?, ctaId?}` · `GET /api/books/:id/exports` · `GET /api/books/:id/cover.png?part=front|back`
+Public: `GET /api/health` · `GET /api/auth/status` · `POST /api/auth/setup|login|register|logout|forgot|reset` · `GET /api/auth/reset/check`. Everything else needs a session: `PUT /api/auth/password` · `POST /api/auth/logout-all` · `GET|POST /api/users` · `PUT|DELETE /api/users/:id` (admin) · `GET|POST /api/books` · `GET /api/books/:id/full` · `PUT|DELETE /api/books/:id` · `POST /api/books/:id/chapters` · `POST /api/books/:id/chapters/reorder` · `POST /api/books/:id/matter {subtype}` · `GET|PUT|DELETE /api/chapters/:id` · `GET|POST /api/chapters/:id/versions` · `GET /api/versions/:id` · `POST /api/versions/:id/restore` · `GET|POST /api/brand-kits` · `PUT|DELETE /api/brand-kits/:id` · `GET|PUT /api/me` · `GET|POST /api/books/:id/ctas` · `PUT|DELETE /api/ctas/:id` · `POST /api/qr` · `GET /api/ai/status` · `POST /api/ai/pain-points` · `POST /api/ai/outline` · `POST /api/ai/copilot` · `POST /api/ai/sales-copy` · `POST /api/blueprints/populate` · `POST /api/books/:id/exports {format: pdf|epub|docx|lead_magnet_pdf, theme?, trim?, chapterIds?, ctaId?}` · `GET /api/books/:id/exports` · `GET /api/books/:id/cover.png?part=front|back`
 
 ## Known limitations
 - Export runs synchronously within the request. For heavy use, move `export_jobs` onto a queue.

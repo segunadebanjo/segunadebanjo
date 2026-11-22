@@ -6,7 +6,7 @@ import { config } from '../config.js';
 import { query, one } from '../db/pool.js';
 import { ah, int, HttpError } from '../lib/http.js';
 import { USER_FIELDS, requireAdmin, hashPassword, validatePassword, normaliseEmail } from '../lib/auth.js';
-import { createUser } from '../lib/users.js';
+import { createUser, notifyPasswordChanged } from '../lib/users.js';
 
 const r = Router();
 r.use('/users', requireAdmin);
@@ -41,6 +41,8 @@ r.put('/users/:id', ah(async (req, res) => {
     validatePassword(b.password);
     // Resetting a password signs the user out everywhere.
     await query('UPDATE users SET password_hash=?, token_version=token_version+1 WHERE id=?', [await hashPassword(b.password), id]);
+    await query('DELETE FROM password_resets WHERE user_id=?', [id]);
+    notifyPasswordChanged(await one('SELECT id, full_name, email FROM users WHERE id=?', [id]), 'by an administrator');
   }
   res.json(await one(`SELECT ${USER_FIELDS} FROM users WHERE id=?`, [id]));
 }));
