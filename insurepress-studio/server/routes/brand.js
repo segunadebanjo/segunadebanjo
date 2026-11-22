@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, one } from '../db/pool.js';
 import { ah, int, HttpError } from '../lib/http.js';
 import { DEFAULT_DISCLAIMER, REGULATORY_FRAMEWORK } from '../../shared/constants.js';
+import { USER_FIELDS } from '../lib/auth.js';
 
 const r = Router();
 const FIELDS = ['name', 'primary_color', 'secondary_color', 'accent_color', 'heading_font', 'body_font', 'logo_url', 'author_photo_url', 'regulatory_framework', 'default_currency', 'default_disclaimer'];
@@ -12,12 +13,12 @@ function validate(b) {
   if (b.default_currency && !['NGN', 'USD'].includes(b.default_currency)) throw new HttpError(400, 'Currency must be NGN or USD');
 }
 
-r.get('/me', ah(async (req, res) => res.json(req.user)));
+r.get('/me', ah(async (req, res) => { const { token_version, ...u } = req.user; res.json(u); }));
 r.put('/me', ah(async (req, res) => {
   const b = req.body || {};
   await query('UPDATE users SET full_name=COALESCE(?,full_name), brokerage_name=?, naicom_license_no=? WHERE id=?',
     [b.full_name || null, b.brokerage_name ?? req.user.brokerage_name, b.naicom_license_no ?? req.user.naicom_license_no, req.user.id]);
-  res.json(await one('SELECT id, full_name, email, brokerage_name, naicom_license_no, created_at FROM users WHERE id=?', [req.user.id]));
+  res.json(await one(`SELECT ${USER_FIELDS} FROM users WHERE id=?`, [req.user.id]));
 }));
 
 r.get('/brand-kits', ah(async (req, res) => res.json(await query('SELECT * FROM brand_kits WHERE user_id=? ORDER BY id', [req.user.id]))));

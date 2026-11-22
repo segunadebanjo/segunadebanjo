@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NULL,
   brokerage_name VARCHAR(190) NULL,
   naicom_license_no VARCHAR(80) NULL,
+  role ENUM('admin','author') NOT NULL DEFAULT 'author',
+  token_version INT NOT NULL DEFAULT 0,
+  last_login_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
