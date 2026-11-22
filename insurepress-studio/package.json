@@ -1,0 +1,18 @@
+{
+  "name": "insurepress-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI insurance book-building & monetization platform for brokers and risk advisors (NAICOM / NIIRA 2025 ready).",
+  "type": "module",
+  "scripts": {
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "migrate": "npm run migrate --prefix server",
+    "seed": "npm run seed --prefix server",
+    "build": "npm run build --prefix client",
+    "start": "npm start --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

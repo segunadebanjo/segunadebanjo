@@ -1,0 +1,5 @@
+exports/*
+!exports/.gitkeep
+node_modules/
+dist/
+.env
