@@ -28,7 +28,7 @@ Every block is drawn by **one shared renderer** (`shared/render.js`). The editor
 ## Tech stack
 
 - **Client:** React 18 + Vite 5, Tailwind CSS 3, Lucide icons, TipTap 2 (custom React node views + `@tiptap/suggestion` slash menu), `@dnd-kit`, `html-to-image`.
-- **Server:** Node 20+ / Express 4 (ES modules), `mysql2/promise`, `@anthropic-ai/sdk`, `puppeteer`, `pdf-lib`, `epub-gen-memory`, `docx`, `qrcode`.
+- **Server:** Node 22+ / Express 4 (ES modules), `mysql2/promise`, `@anthropic-ai/sdk`, `puppeteer`, `pdf-lib`, `epub-gen-memory`, `docx`, `qrcode`.
 - **Database:** MySQL 8.0 (`database/schema.sql`; also runs on MariaDB 10.6+).
 
 ```
@@ -58,7 +58,7 @@ insurepress-studio/
 
 ## Setup
 
-**Prerequisites:** Node.js 20+, MySQL 8.0 (or MariaDB 10.6+), and a Chrome/Chromium for Puppeteer. Puppeteer downloads one on `npm install` unless you set `PUPPETEER_SKIP_DOWNLOAD=true` and point `PUPPETEER_EXECUTABLE_PATH` at an existing browser.
+**Prerequisites:** Node.js 22+, MySQL 8.0 (or MariaDB 10.6+), and a Chrome/Chromium for Puppeteer. Puppeteer downloads one on `npm install` unless you set `PUPPETEER_SKIP_DOWNLOAD=true` and point `PUPPETEER_EXECUTABLE_PATH` at an existing browser.
 
 ```bash
 cd insurepress-studio
@@ -75,6 +75,8 @@ npm run dev                   # API on :5050, app on http://localhost:5173
 ```
 
 Production: `npm run build && npm start`. Express serves the built client and the API from one port (`PORT`, default 5050).
+
+**Deploying to a server:** see [DEPLOY.md](DEPLOY.md). It covers Docker Compose with MySQL 8, automatic HTTPS and a password prompt in front of the app.
 
 ### Environment variables
 

@@ -42,7 +42,14 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: err.message || 'Server error' });
 });
 
-await migrate({ quiet: true }).catch((e) => console.error(`⚠ Auto-migration skipped: ${e.message}`));
+// Retry so the app can start before the database container is ready.
+for (let attempt = 1; ; attempt++) {
+  try { await migrate({ quiet: true }); break; } catch (e) {
+    if (attempt >= 20) { console.error(`\u26A0 Auto-migration skipped: ${e.message}`); break; }
+    console.log(`Waiting for database (${e.code || e.message})\u2026 retry ${attempt}/20`);
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+}
 const server = app.listen(config.port, () => {
   const ai = aiStatus();
   console.log(`InsurePress Studio API on http://localhost:${config.port}  (AI: ${ai.mode}${ai.mode === 'live' ? ` · ${ai.model}` : ''})`);
