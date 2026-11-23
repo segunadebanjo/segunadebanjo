@@ -10,6 +10,20 @@ This runs three containers with Docker Compose on a server you own:
 
 Everyone signs in with their own email and password. Each author's books, brand kits, offers and exported files are private to them. The first person to open the site creates the **admin** account. Admins add other authors from **Manage users**.
 
+## Quick install (one command)
+
+After you've pointed your domain at the server (step 2 below), SSH into the VPS and run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/segunadebanjo/segunadebanjo/ccr-c74a1e40-x4h3hv/insurepress-studio/deploy/install.sh | bash
+```
+
+It installs Docker if needed and downloads the code to `~/insurepress`. It asks for your domain and, optionally, your email (SMTP) and Anthropic settings, then generates every password and secret into a private `.env`. Finally it checks your DNS, opens ports 80/443 if `ufw` is on, builds, starts and waits until the site is healthy. **Run the same command again to update**: your `.env` and data are kept.
+
+Then open your site and create the admin account straight away.
+
+The steps below do the same thing by hand, and explain each part.
+
 ## 1. What you need
 
 - A VPS running **Ubuntu 22.04 or 24.04** with **at least 2 GB RAM** (4 GB is better; Chromium uses a lot of memory while making PDFs). For example DigitalOcean, Hetzner, AWS Lightsail or Contabo.

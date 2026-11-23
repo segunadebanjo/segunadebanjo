@@ -78,7 +78,7 @@ Open the app and **create the admin account** on the first-run screen. If you ra
 
 Production: `npm run build && npm start`. Express serves the built client and the API from one port (`PORT`, default 5050).
 
-**Deploying to a server:** see [DEPLOY.md](DEPLOY.md). It covers Docker Compose with MySQL 8 and automatic HTTPS.
+**Deploying to a server:** on an Ubuntu/Debian VPS, run `curl -fsSL https://raw.githubusercontent.com/segunadebanjo/segunadebanjo/ccr-c74a1e40-x4h3hv/insurepress-studio/deploy/install.sh | bash`. Run it again to update. [DEPLOY.md](DEPLOY.md) explains every step and covers manual setup, email, backups and troubleshooting.
 
 ### Environment variables
 
